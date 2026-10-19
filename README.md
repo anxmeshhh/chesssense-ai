@@ -1,4 +1,4 @@
-# Knightshade
+# ChessSense AI
 
 A neural chess engine that learned from 400k games between 2000+ rated Lichess players.
 A small ResNet predicts moves and evaluates positions, Monte-Carlo tree search turns that
@@ -46,7 +46,7 @@ Training is in progress. Final move accuracy and Elo estimates will be added her
 
 ## Fair play
 
-Knightshade is for local practice, reviewing finished games, and Lichess BOT accounts, where bots
+ChessSense AI is for local practice, reviewing finished games, and Lichess BOT accounts, where bots
 are allowed and labelled. Don't use its coaching during live games against people on any site.
 
 ## License
