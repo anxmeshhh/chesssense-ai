@@ -13,7 +13,7 @@ into play, and a local web board lets you play it, review your games, or run it 
 | Training | `train.py` | bf16 on GPU, one-cycle LR, checkpoints + resume, logs top-1/top-5 move accuracy |
 | Search | `search.py` | AlphaZero-style PUCT MCTS with batched leaf evaluation, about 1000 nodes/s on an RTX 4050 |
 | Baseline | `baseline.py` | Classical alpha-beta + quiescence engine, used as a sparring partner |
-| Play | `app.py` | Flask + chessboard.js: play the engine, or paste a finished game's PGN for a move-by-move review |
+| Play | `app.py` | Flask + chessboard.js: play the engine with a live best-move suggestion, or review a finished game's PGN |
 | Bot | `lichess_bot.py` | Runs the engine on a Lichess BOT account |
 | Eval | `match.py` | Engine-vs-engine matches (baseline, Stockfish) with Elo estimates |
 
@@ -26,6 +26,8 @@ python data.py --month 2026-09 --out data/2026-09 --max-positions 30000000   # ~
 python train.py --data data/2026-09 --out runs/r1 --epochs 3                 # ~2.5 h on an RTX 4050
 python app.py                                                                # http://localhost:5000
 ```
+
+During a local practice game, the live coach analyses the current position when it is your turn and shows the engine's top move, evaluation, and principal variation. Search work runs in Flask's request thread, so board interaction remains responsive. The app does not capture or inspect other windows.
 
 Other commands:
 
@@ -42,8 +44,8 @@ Training is in progress. Final move accuracy and Elo estimates will be added her
 
 ## Fair play
 
-Knightshade is for local play, reviewing finished games, and Lichess BOT accounts, where bots
-are allowed and labelled. Don't use it for help during live games against people on any site.
+Knightshade is for local practice, reviewing finished games, and Lichess BOT accounts, where bots
+are allowed and labelled. Don't use its coaching during live games against people on any site.
 
 ## License
 

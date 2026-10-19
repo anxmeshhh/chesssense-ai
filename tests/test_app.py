@@ -34,6 +34,25 @@ def test_engine_move_is_legal(client):
     assert isinstance(r.json["cp"], int) and r.json["pv"]
 
 
+def test_live_analysis_returns_a_legal_suggestion(client):
+    moves = ["e2e4", "e7e5"]
+    r = client.post("/api/analyse", json={"moves": moves, "nodes": 20})
+    assert r.status_code == 200
+    board = chess.Board()
+    for uci in moves:
+        board.push_uci(uci)
+    move = chess.Move.from_uci(r.json["move"])
+    assert move in board.legal_moves
+    assert r.json["san"] == board.san(move)
+    assert r.json["pv"] and isinstance(r.json["cp"], int)
+
+
+def test_live_analysis_rejects_invalid_or_finished_positions(client):
+    assert client.post("/api/analyse", json={"moves": ["e2e5"]}).status_code == 400
+    mate = ["e2e4", "e7e5", "f1c4", "b8c6", "d1h5", "g8f6", "h5f7"]
+    assert client.post("/api/analyse", json={"moves": mate}).status_code == 400
+
+
 def test_illegal_and_finished_positions_rejected(client):
     assert client.post("/api/move", json={"moves": ["e2e5"]}).status_code == 400
     mate = ["e2e4", "e7e5", "f1c4", "b8c6", "d1h5", "g8f6", "h5f7"]

@@ -52,6 +52,24 @@ def create_app(engine) -> Flask:
         return jsonify(move=info["move"].uci(), san=board.san(info["move"]),
                        cp=white_cp(info["value"], board.turn), pv=board.variation_san(info["pv"][:8]))
 
+    @app.post("/api/analyse")
+    def api_analyse():
+        body = request.get_json(force=True)
+        board = chess.Board()
+        try:
+            for uci in body.get("moves", []):
+                board.push_uci(uci)
+        except (ValueError, TypeError) as e:
+            return jsonify(error=f"invalid move history: {e}"), 400
+        if board.is_game_over():
+            return jsonify(error="game is over"), 400
+        with lock:
+            info = engine.analyse(board, nodes=nodes_arg(body, 200))
+        move = info["move"]
+        return jsonify(move=move.uci(), san=board.san(move),
+                       cp=white_cp(info["value"], board.turn),
+                       pv=board.variation_san(info["pv"][:8]), nodes=info["nodes"])
+
     @app.post("/api/review")
     def api_review():
         body = request.get_json(force=True)

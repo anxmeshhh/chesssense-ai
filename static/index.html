@@ -29,6 +29,8 @@
   textarea { width: 100%; min-height: 140px; font-family: ui-monospace, monospace; font-size: 13px; }
   .muted { color: var(--muted); }
   .status { font-weight: 600; margin: 8px 0; }
+  .coach { margin: 12px 0; padding: 12px; border: 1px solid var(--line); border-radius: 8px; background: color-mix(in srgb, var(--accent) 8%, var(--panel)); }
+  .coach strong { display: block; margin-bottom: 4px; }
   #moves { font-family: ui-monospace, monospace; font-size: 13px; max-height: 260px; overflow-y: auto; white-space: pre-wrap; }
   table { width: 100%; border-collapse: collapse; font-size: 13px; }
   th, td { text-align: left; padding: 5px 6px; border-bottom: 1px solid var(--line); }
@@ -66,6 +68,7 @@
       </div>
       <div class="status" id="status"></div>
       <div class="muted" id="eval"></div>
+      <div class="coach" id="coach" aria-live="polite"><strong>Live coach</strong><span class="muted">Waiting for a position…</span></div>
       <div id="moves"></div>
     </div>
   </section>
@@ -108,7 +111,7 @@ document.querySelectorAll('.tab').forEach(t => t.onclick = () => {
 
 // ---- play ----
 const game = new Chess();
-let human = 'w', busy = false;
+let human = 'w', busy = false, coachRequest = 0;
 const board = Chessboard('board', {
   draggable: true, position: 'start', pieceTheme: PIECES,
   onDragStart: (src, piece) => !(busy || game.game_over() || game.turn() !== human || piece[0] !== human),
@@ -126,6 +129,33 @@ function refresh() {
   else s = (busy ? 'Engine thinking…' : (game.turn() === human ? 'Your move' : 'Engine to move')) + (game.in_check() ? ' (check)' : '');
   $id('status').textContent = s;
   $id('moves').textContent = game.pgn({ max_width: 40, newline_char: '\n' });
+  if (game.game_over()) {
+    coachRequest++;
+    $id('coach').innerHTML = '<strong>Live coach</strong><span class="muted">Game finished.</span>';
+  } else if (busy || game.turn() !== human) {
+    coachRequest++;
+    $id('coach').innerHTML = '<strong>Live coach</strong><span class="muted">Waiting for your turn…</span>';
+  } else {
+    requestCoach();
+  }
+}
+
+async function requestCoach() {
+  const requestId = ++coachRequest;
+  const position = game.fen();
+  $id('coach').innerHTML = '<strong>Live coach</strong><span class="muted">Analysing this position…</span>';
+  try {
+    const moves = game.history({ verbose: true }).map(m => m.from + m.to + (m.promotion || ''));
+    const r = await fetch('/api/analyse', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ moves, nodes: Math.min(400, +$id('nodes').value) }) });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error);
+    if (requestId !== coachRequest || position !== game.fen()) return;
+    const sideEval = d.cp > 0 ? '+' : '';
+    $id('coach').innerHTML = `<strong>Suggested move: ${esc(d.san)} · White eval ${sideEval}${(d.cp / 100).toFixed(2)}</strong><span class="muted">Line: ${esc(d.pv || d.san)} · ${d.nodes} nodes</span>`;
+  } catch (e) {
+    if (requestId === coachRequest) $id('coach').innerHTML = `<strong>Live coach</strong><span class="muted">${esc(e.message)}</span>`;
+  }
 }
 
 async function engineMove() {
@@ -155,6 +185,9 @@ $id('undo').onclick = () => {
   board.position(game.fen()); refresh();
 };
 $id('flip').onclick = () => board.flip();
+$id('nodes').onchange = () => {
+  if (!busy && !game.game_over() && game.turn() === human) requestCoach();
+};
 
 // ---- review ----
 const rboard = Chessboard('rboard', { position: 'start', pieceTheme: PIECES });
