@@ -10,6 +10,7 @@ import numpy as np
 from PIL import Image, UnidentifiedImageError
 
 REFERENCE_BOARD = Path(__file__).parent / "vision_assets" / "reference_board.png"
+REFERENCE_BOARDS = (REFERENCE_BOARD, Path(__file__).parent / "vision_assets" / "fantasy_reference.png")
 NORMALIZED_SIZE = 256
 SQUARE_SIZE = NORMALIZED_SIZE // 8
 EMPTY_THRESHOLD = 0.035
@@ -29,6 +30,18 @@ REFERENCE_TEMPLATES = {
     "Q": [(7, 3)],
     "K": [(7, 4)],
     "P": [(6, file_index) for file_index in range(8)],
+}
+REFERENCE_EMPTY = {
+    REFERENCE_BOARD: [(row, column) for row in range(2, 6) for column in range(8)],
+    REFERENCE_BOARDS[1]: (
+        [(1, 3)] + [(2, column) for column in range(8)]
+        + [(3, column) for column in range(8) if column != 3]
+        + [(4, column) for column in range(8)]
+        + [(5, column) for column in range(8) if column != 3] + [(6, 3)]
+    ),
+}
+REFERENCE_PIECES = {
+    REFERENCE_BOARDS[1]: {"p": [(3, 3)], "P": [(5, 3)]},
 }
 
 
@@ -50,19 +63,26 @@ def _tile_features(tile: np.ndarray) -> tuple[np.ndarray, float]:
 
 @lru_cache(maxsize=1)
 def _templates() -> dict[str, tuple[np.ndarray, ...]]:
-    if not REFERENCE_BOARD.is_file():
-        raise RuntimeError(f"Piece reference image is missing: {REFERENCE_BOARD}")
-    with Image.open(REFERENCE_BOARD) as source:
-        image = np.asarray(source.convert("RGB").resize((NORMALIZED_SIZE, NORMALIZED_SIZE)), dtype=np.float32)
-    templates = {}
-    for piece, locations in REFERENCE_TEMPLATES.items():
-        features = []
-        for row, column in locations:
+    templates = {piece: [] for piece in REFERENCE_TEMPLATES}
+    templates[" "] = []
+    for reference in REFERENCE_BOARDS:
+        if not reference.is_file():
+            raise RuntimeError(f"Piece reference image is missing: {reference}")
+        with Image.open(reference) as source:
+            image = np.asarray(source.convert("RGB").resize((NORMALIZED_SIZE, NORMALIZED_SIZE)), dtype=np.float32)
+        piece_locations = {piece: list(locations) for piece, locations in REFERENCE_TEMPLATES.items()}
+        for piece, locations in REFERENCE_PIECES.get(reference, {}).items():
+            piece_locations[piece].extend(locations)
+        for piece, locations in piece_locations.items():
+            for row, column in locations:
+                top, left = row * SQUARE_SIZE, column * SQUARE_SIZE
+                tile, _ = _tile_features(image[top:top + SQUARE_SIZE, left:left + SQUARE_SIZE])
+                templates[piece].append(tile)
+        for row, column in REFERENCE_EMPTY[reference]:
             top, left = row * SQUARE_SIZE, column * SQUARE_SIZE
             tile, _ = _tile_features(image[top:top + SQUARE_SIZE, left:left + SQUARE_SIZE])
-            features.append(tile)
-        templates[piece] = tuple(features)
-    return templates
+            templates[" "].append(tile)
+    return {piece: tuple(features) for piece, features in templates.items()}
 
 
 def _read_board_image(image_bytes: bytes) -> np.ndarray:
@@ -92,9 +112,6 @@ def recognize_piece_map(image_bytes: bytes, orientation: str = "white") -> tuple
             top, left = row * SQUARE_SIZE, column * SQUARE_SIZE
             features, energy = _tile_features(image[top:top + SQUARE_SIZE, left:left + SQUARE_SIZE])
             square_name = chess.square_name(chess.square(column, 7 - row))
-            if energy < EMPTY_THRESHOLD:
-                confidences.append(max(0.0, 1.0 - energy / EMPTY_THRESHOLD))
-                continue
             scores = sorted(
                 (float(np.mean((features - template) ** 2)), symbol)
                 for symbol, variations in templates.items()
@@ -103,7 +120,10 @@ def recognize_piece_map(image_bytes: bytes, orientation: str = "white") -> tuple
             best_score, symbol = scores[0]
             second_score = next(score for score, candidate in scores if candidate != symbol)
             gap = second_score - best_score
-            if best_score > MAX_MATCH_ERROR or gap < MIN_MATCH_GAP:
+            if symbol == " " and (energy < EMPTY_THRESHOLD or best_score <= MAX_MATCH_ERROR):
+                confidences.append(max(0.0, min(1.0, 1.0 - best_score / MAX_MATCH_ERROR)))
+                continue
+            if best_score > MAX_MATCH_ERROR or (gap < MIN_MATCH_GAP and best_score > 0.0005):
                 uncertain.append(square_name)
                 continue
             confidence = max(0.0, min(1.0, 1.0 - best_score / MAX_MATCH_ERROR))

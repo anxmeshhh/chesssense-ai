@@ -7,6 +7,7 @@ from vision import advance_board, recognize_piece_map
 
 
 REFERENCE = Path("vision_assets/reference_board.png")
+FANTASY_REFERENCE = Path("vision_assets/fantasy_reference.png")
 
 
 def test_reference_theme_recognizes_initial_position():
@@ -15,6 +16,17 @@ def test_reference_theme_recognizes_initial_position():
     for square, piece in pieces.items():
         board.set_piece_at(square, piece)
     assert board.board_fen() == chess.STARTING_BOARD_FEN
+    assert len(pieces) == 32
+    assert confidence > 0.8
+
+
+def test_fantasy_theme_recognizes_the_supplied_live_position():
+    pieces, confidence = recognize_piece_map(FANTASY_REFERENCE.read_bytes())
+    board = chess.Board(None)
+    for square, piece in pieces.items():
+        board.set_piece_at(square, piece)
+    assert board.board_fen() == "rnbqkbnr/ppp1pppp/8/3p4/8/3P4/PPP1PPPP/RNBQKBNR"
+    assert board.is_valid()
     assert len(pieces) == 32
     assert confidence > 0.8
 

@@ -4,5 +4,7 @@ zstandard
 torch
 flask
 Pillow
+mss
+PySide6-Essentials
 requests
 pytest

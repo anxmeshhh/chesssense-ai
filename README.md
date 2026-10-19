@@ -29,7 +29,16 @@ python app.py                                                                # h
 
 During a local practice game, the live coach analyses the current position when it is your turn and shows the engine's top move, evaluation, and principal variation. Search work runs in Flask's request thread, so board interaction remains responsive.
 
-The Play page also has a **Screen board** panel. Choose a screen or window in the browser's screen-sharing prompt, then drag a square over the board. The app recognizes the supplied green-and-cream board and outlined Staunton piece set using local image templates, builds a chess position, analyzes it with the existing engine, and draws a move arrow over the screen preview. Enable **Analyze after board changes** for automatic updates. Set the board orientation, side to move, castling rights, and any en-passant target for the first captured position; later single legal moves are tracked from successive positions. The screenshot crop is sent only to the local Flask app. Other piece sets are not supported by this template set. When starting mid-game, repetition history cannot be recovered from pixels alone; reset tracking if the recognized board jumps multiple moves.
+The Play page also has a **Screen board** panel. Choose a screen or window in the browser's screen-sharing prompt, then drag a square over the board. The app recognizes the supplied green-and-cream outlined Staunton theme and the fantasy green theme in the supplied screen example using local image templates, builds a chess position, analyzes it with the existing engine, and draws a move arrow over the screen preview. Enable **Analyze after board changes** for automatic updates. Set the board orientation, side to move, castling rights, and any en-passant target for the first captured position; later single legal moves are tracked from successive positions. The screenshot crop is sent only to the local Flask app. Other piece sets are not supported by these templates. When starting mid-game, repetition history cannot be recovered from pixels alone; reset tracking if the recognized board jumps multiple moves.
+
+For recommendations without switching back to a browser tab, use the native Windows coach:
+
+```powershell
+python -m pip install -r requirements.txt
+python desktop_app.py --checkpoint runs/r1/best.pt
+```
+
+The compact, always-on-top coach captures a manually selected square board region locally with MSS, waits for the image to settle, recognizes either supplied board theme, then runs the existing trained ChessNet/MCTS model off the UI thread. The window shows the recommended SAN/UCI move, evaluation, confidence, a principal variation, and a transparent arrow over the selected board. It polls only while live coaching is enabled and skips unchanged frames; use **Pause live coach** or **Stop** at any time. The initial side to move and board orientation must be correct for the first position; castling rights default to all available and are tracked after a recognized legal move. The screen recognizer currently supports the two supplied themes and consecutive single legal moves. Search strength can be adjusted with the node control (default 96) or `--nodes`; more nodes take longer. For manual practice/analysis boards where engine assistance is permitted only—not live games against people.
 
 Other commands:
 
