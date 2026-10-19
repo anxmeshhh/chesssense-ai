@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Local web app: play the engine, or review a finished game move by move.
+"""Local web app: play the engine, study any position on an analysis board, or review a finished game.
 
     python app.py                          # http://localhost:5000
     python app.py --host 0.0.0.0           # friends on the same Wi-Fi use http://<your-ip>:5000
@@ -19,6 +19,16 @@ from vision import BoardRecognitionError, PositionSyncError, analyze_screen_imag
 # Drop in expected score (on the [-1, 1] value scale) for the mover, as on Lichess.
 LABELS = [(0.3, "blunder"), (0.2, "mistake"), (0.1, "inaccuracy")]
 FINISHED = {"1-0", "0-1", "1/2-1/2"}
+# Why python-chess rejects a set-up position, in the order worth reporting.
+POSITION_PROBLEMS = [
+    (chess.STATUS_NO_WHITE_KING, "White has no king"),
+    (chess.STATUS_NO_BLACK_KING, "Black has no king"),
+    (chess.STATUS_TOO_MANY_KINGS, "each side needs exactly one king"),
+    (chess.STATUS_PAWNS_ON_BACKRANK, "pawns can't stand on the first or last rank"),
+    (chess.STATUS_OPPOSITE_CHECK, "the side not to move is in check"),
+    (chess.STATUS_BAD_CASTLING_RIGHTS, "castling rights don't match the king and rook squares"),
+    (chess.STATUS_INVALID_EP_SQUARE, "the en-passant square isn't possible here"),
+]
 
 
 def white_cp(value: float, turn: chess.Color) -> int:
@@ -56,7 +66,14 @@ def create_app(engine) -> Flask:
     @app.post("/api/analyse")
     def api_analyse():
         body = request.get_json(force=True)
-        board = chess.Board()
+        try:
+            board = chess.Board(body.get("fen") or chess.STARTING_FEN)
+        except (ValueError, TypeError) as e:
+            return jsonify(error=f"invalid FEN: {e}"), 400
+        status = board.status()
+        if status != chess.STATUS_VALID:
+            reason = next((text for flag, text in POSITION_PROBLEMS if status & flag), "the position is not legal")
+            return jsonify(error=f"illegal position: {reason}"), 400
         try:
             for uci in body.get("moves", []):
                 board.push_uci(uci)
@@ -68,6 +85,8 @@ def create_app(engine) -> Flask:
             info = engine.analyse(board, nodes=nodes_arg(body, 200))
         move = info["move"]
         return jsonify(move=move.uci(), san=board.san(move),
+                       from_square=chess.square_name(move.from_square),
+                       to_square=chess.square_name(move.to_square), fen=board.fen(),
                        cp=white_cp(info["value"], board.turn),
                        pv=board.variation_san(info["pv"][:8]), nodes=info["nodes"])
 

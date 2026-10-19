@@ -13,7 +13,7 @@ into play, and a local web board lets you play it, review your games, or run it 
 | Training | `train.py` | bf16 on GPU, one-cycle LR, checkpoints + resume, logs top-1/top-5 move accuracy |
 | Search | `search.py` | AlphaZero-style PUCT MCTS with batched leaf evaluation, about 1000 nodes/s on an RTX 4050 |
 | Baseline | `baseline.py` | Classical alpha-beta + quiescence engine, used as a sparring partner |
-| Play | `app.py` | Flask + chessboard.js: play the engine with a live best-move suggestion, or review a finished game's PGN |
+| Play | `app.py` | Flask + chessboard.js: play the engine with a live best-move suggestion, study any position on an analysis board, or review a finished game's PGN |
 | Bot | `lichess_bot.py` | Runs the engine on a Lichess BOT account |
 | Eval | `match.py` | Engine-vs-engine matches (baseline, Stockfish) with Elo estimates |
 
@@ -28,6 +28,24 @@ python app.py                                                                # h
 ```
 
 During a local practice game, the live coach analyses the current position when it is your turn and shows the engine's top move, evaluation, and principal variation. Search work runs in Flask's request thread, so board interaction remains responsive.
+
+### Analysis board
+
+The **Analysis** tab is a study board for any position:
+
+- **Set up a position**: tick **Edit position** to drag pieces from the trays above and below the board, or drag a piece off the board to remove it. Choose the side to move, castling rights (impossible rights are dropped automatically) and the en-passant square. **Clear board** and **Start position** reset it.
+- **Load a position**: paste a FEN and press **Load FEN**, or open **Import PGN** and step through the game with the arrow buttons or by clicking a move.
+- **Ask the model**: **My turn — analyze now** runs your trained model on the position. The recommendation appears as an arrow on the board with both squares labelled, plus a "g1 → f3" label, the evaluation and the expected line. With **Live updates** on, every move or edit is analyzed automatically.
+
+Illegal set-ups (missing king, pawns on the back rank, the side not to move in check, and so on) are reported instead of analyzed.
+
+On Windows (PowerShell):
+
+```powershell
+cd $HOME\Desktop\chess.com
+.venv\Scripts\Activate.ps1
+python app.py --checkpoint runs/r1/best.pt     # then open http://localhost:5000 and pick the Analysis tab
+```
 
 The Play page also has a **Screen board** panel. Choose a screen or window in the browser's screen-sharing prompt, then drag a square over the board. The app recognizes the supplied green-and-cream outlined Staunton theme and the fantasy green theme in the supplied screen example using local image templates, builds a chess position, analyzes it with the existing engine, and draws a move arrow over the screen preview. Enable **Analyze after board changes** for automatic updates. Set the board orientation, side to move, castling rights, and any en-passant target for the first captured position; later single legal moves are tracked from successive positions. The screenshot crop is sent only to the local Flask app. Other piece sets are not supported by these templates. When starting mid-game, repetition history cannot be recovered from pixels alone; reset tracking if the recognized board jumps multiple moves.
 

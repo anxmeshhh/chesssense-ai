@@ -7,10 +7,10 @@
 <link rel="stylesheet" href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css">
 <style>
   :root { --bg: #f6f5f2; --panel: #ffffff; --text: #1d1d1f; --muted: #6b6b70; --line: #e2e0db;
-          --accent: #4a6fa5; --blunder: #c0392b; --mistake: #d68910; --inacc: #b7950b; }
+          --accent: #4a6fa5; --blunder: #c0392b; --mistake: #d68910; --inacc: #b7950b; --arrow: #f39c12; }
   @media (prefers-color-scheme: dark) {
     :root { --bg: #18181a; --panel: #232326; --text: #ececee; --muted: #9a9aa0; --line: #38383c;
-            --accent: #7aa2dc; --blunder: #ec7063; --mistake: #f0b27a; --inacc: #f7dc6f; }
+            --accent: #7aa2dc; --blunder: #ec7063; --mistake: #f0b27a; --inacc: #f7dc6f; --arrow: #f5b041; }
   }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.45 system-ui, sans-serif; }
@@ -41,12 +41,31 @@
   .blunder { color: var(--blunder); font-weight: 600; } .mistake { color: var(--mistake); font-weight: 600; } .inaccuracy { color: var(--inacc); }
   .scroll { max-height: 460px; overflow-y: auto; }
   .hidden { display: none; }
+  input[type=text] { font: inherit; color: var(--text); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; }
+  input.fen { flex: 1 1 260px; min-width: 0; font-family: ui-monospace, monospace; font-size: 12px; }
+  .board-wrap { position: relative; }
+  .board-wrap.hide-spares .spare-pieces-7492f { display: none; }
+  .arrow { position: absolute; pointer-events: none; overflow: visible; }
+  .arrow .shaft { stroke: var(--arrow); stroke-width: .17; stroke-linecap: round; opacity: .9; }
+  .arrow .head { fill: var(--arrow); opacity: .9; }
+  .arrow .from, .arrow .to { fill: var(--arrow); fill-opacity: .22; stroke: var(--arrow); stroke-width: .05; }
+  .arrow .tag rect { fill: rgba(0, 0, 0, .72); }
+  .arrow .tag text { fill: #fff; font: 600 .2px ui-monospace, monospace; }
+  .rec { font-size: 18px; }
+  .rec .squares { margin-left: 8px; padding: 1px 8px; border-radius: 6px; background: var(--arrow); color: #1d1d1f; font-family: ui-monospace, monospace; }
+  .movelist { font-family: ui-monospace, monospace; font-size: 13px; max-height: 220px; overflow-y: auto; line-height: 2; }
+  .movelist button { padding: 1px 6px; margin-right: 2px; cursor: pointer; }
+  .movelist button.cur { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .movelist .num { margin: 0 2px 0 6px; color: var(--muted); }
+  details { margin-bottom: 10px; }
+  .warn { color: var(--blunder); }
 </style>
 </head>
 <body>
 <header>
   <h1>ChessSense AI</h1>
   <button class="tab active" data-tab="play">Play</button>
+  <button class="tab" data-tab="analysis">Analysis</button>
   <button class="tab" data-tab="review">Review</button>
 </header>
 <main>
@@ -99,6 +118,64 @@
     </div>
   </section>
 
+  <section id="analysis" class="layout hidden">
+    <div>
+      <div class="board-wrap hide-spares" id="awrap">
+        <div id="aboard"></div>
+        <svg class="arrow" id="aarrow" aria-hidden="true"></svg>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <button id="a-first" aria-label="Go to the first position">&#x23EE;</button>
+        <button id="a-prev" aria-label="Back one move">&#x25C0;</button>
+        <button id="a-next" aria-label="Forward one move">&#x25B6;</button>
+        <button id="a-last" aria-label="Go to the last position">&#x23ED;</button>
+        <button id="a-flip">Flip</button>
+      </div>
+    </div>
+    <div class="panel">
+      <p class="muted">Set up any position, or load a FEN or PGN, then ask your model for its recommendation. For your own study and practice.</p>
+      <div class="row">
+        <button class="primary" id="analyze-now">My turn — analyze now</button>
+        <label><input type="checkbox" id="a-live" checked> Live updates</label>
+        <label>Depth <select id="anodes">
+          <option value="100">Quick (100 nodes)</option>
+          <option value="400" selected>Normal (400)</option>
+          <option value="800">Deep (800)</option>
+          <option value="2000">Max (2000)</option>
+        </select></label>
+      </div>
+      <div class="coach" id="a-result" aria-live="polite"><strong>Recommendation</strong><span class="muted">Press “My turn — analyze now”.</span></div>
+      <div class="status" id="a-status" aria-live="polite"></div>
+      <div class="row">
+        <label><input type="checkbox" id="a-edit"> Edit position</label>
+        <button id="a-start">Start position</button>
+        <button id="a-clear">Clear board</button>
+        <label>Promote to <select id="a-promo"><option value="q">Queen</option><option value="r">Rook</option><option value="b">Bishop</option><option value="n">Knight</option></select></label>
+      </div>
+      <div class="row">
+        <label>Side to move <select id="a-turn" disabled><option value="w">White</option><option value="b">Black</option></select></label>
+        <span>Castling
+          <label><input type="checkbox" id="a-K" disabled> K</label>
+          <label><input type="checkbox" id="a-Q" disabled> Q</label>
+          <label><input type="checkbox" id="a-k" disabled> k</label>
+          <label><input type="checkbox" id="a-q" disabled> q</label>
+        </span>
+        <label>En passant <input type="text" id="a-ep" value="-" maxlength="2" size="3" disabled aria-label="En-passant target square, or a hyphen"></label>
+      </div>
+      <div class="row">
+        <input type="text" class="fen" id="a-fen" spellcheck="false" aria-label="FEN of the current position">
+        <button id="a-load-fen">Load FEN</button>
+        <button id="a-copy-fen">Copy</button>
+      </div>
+      <details>
+        <summary>Import PGN</summary>
+        <textarea id="a-pgn" placeholder="1. e4 e5 2. Nf3 Nc6 ..."></textarea>
+        <button id="a-load-pgn" style="margin-top:8px">Load PGN</button>
+      </details>
+      <div class="movelist" id="a-moves"></div>
+    </div>
+  </section>
+
   <section id="review" class="layout hidden">
     <div>
       <div id="rboard"></div>
@@ -131,8 +208,9 @@ const fmt = (cp) => (cp > 0 ? '+' : '') + (cp / 100).toFixed(2);
 // ---- tabs ----
 document.querySelectorAll('.tab').forEach(t => t.onclick = () => {
   document.querySelectorAll('.tab').forEach(x => x.classList.toggle('active', x === t));
-  for (const id of ['play', 'review']) $id(id).classList.toggle('hidden', id !== t.dataset.tab);
-  (t.dataset.tab === 'play' ? board : rboard).resize();
+  for (const id of ['play', 'analysis', 'review']) $id(id).classList.toggle('hidden', id !== t.dataset.tab);
+  ({ play: board, analysis: aboard, review: rboard })[t.dataset.tab].resize();
+  if (t.dataset.tab === 'analysis') drawArrow();
 });
 
 // ---- play ----
@@ -254,7 +332,182 @@ function showReview(d) {
 }
 const esc = (s) => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 
-window.addEventListener('resize', () => { board.resize(); rboard.resize(); });
+// ---- analysis board ----
+// A line is a base FEN plus the moves played from it; the cursor says how many are on the board.
+const START_FEN = new Chess().fen();
+let abase = START_FEN, aline = [], acursor = 0, agame = new Chess();
+let aRequest = 0, aTimer = 0, aArrow = null;
+const editing = () => $id('a-edit').checked;
+const placement = () => agame.fen().split(' ')[0];
+const kingProblem = () => {
+  const p = placement(), white = (p.match(/K/g) || []).length, black = (p.match(/k/g) || []).length;
+  return white === 1 && black === 1 ? '' : 'Each side needs exactly one king.';
+};
+
+const aboard = Chessboard('aboard', {
+  draggable: true, position: 'start', pieceTheme: PIECES, sparePieces: true, dropOffBoard: 'trash',
+  onDragStart: (src, piece) => editing()
+    || (src !== 'spare' && !kingProblem() && !agame.game_over() && piece[0] === agame.turn()),
+  onDrop: (from, to, piece, newPos) => {
+    if (editing()) { editPosition(Chessboard.objToFen(newPos), false); return; }
+    if (to === 'offboard') return 'snapback';
+    const move = agame.move({ from, to, promotion: $id('a-promo').value });
+    if (!move) return 'snapback';
+    aline = aline.slice(0, acursor).concat([{ from: move.from, to: move.to, promotion: move.promotion }]);
+    acursor++;
+    positionChanged(false);
+  },
+  onSnapEnd: () => { if (!editing()) aboard.position(agame.fen()); },   // castling, en passant, promotion
+});
+
+function setLine(base, line, cursor, moveBoard = true) {
+  abase = base; aline = line; acursor = cursor;
+  agame = new Chess(abase);
+  for (const m of aline.slice(0, acursor)) agame.move(m);
+  positionChanged(moveBoard);
+}
+
+function composeFen(boardFen) {
+  const pos = Chessboard.fenToObj(boardFen), at = (sq, piece) => pos[sq] === piece;
+  const rights = [['K', 'w', 'e1', 'h1'], ['Q', 'w', 'e1', 'a1'], ['k', 'b', 'e8', 'h8'], ['q', 'b', 'e8', 'a8']]
+    .filter(([flag, side, king, rook]) => $id('a-' + flag).checked && at(king, side + 'K') && at(rook, side + 'R'))
+    .map(([flag]) => flag).join('');
+  const turn = $id('a-turn').value, ep = $id('a-ep').value.trim().toLowerCase();
+  const epOk = new RegExp(`^[a-h]${turn === 'w' ? 6 : 3}$`).test(ep);
+  return `${boardFen} ${turn} ${rights || '-'} ${epOk ? ep : '-'} 0 1`;
+}
+
+// moveBoard is false for drags: chessboard.js has already drawn the new placement.
+function editPosition(boardFen, moveBoard = true) {
+  setLine(composeFen(boardFen), [], 0, moveBoard);
+}
+
+function positionChanged(moveBoard) {
+  if (moveBoard) aboard.position(agame.fen(), false);
+  const [, turn, castling, ep] = agame.fen().split(' ');
+  $id('a-turn').value = turn;
+  for (const flag of 'KQkq') $id('a-' + flag).checked = castling.includes(flag);
+  $id('a-ep').value = ep;
+  $id('a-fen').value = agame.fen();
+  renderMoves();
+  aArrow = null; drawArrow();
+  const problem = kingProblem();
+  let status = problem || (turn === 'w' ? 'White' : 'Black') + ' to move';
+  if (!problem && agame.in_checkmate()) status = 'Checkmate';
+  else if (!problem && agame.game_over()) status = 'Draw';
+  else if (!problem && agame.in_check()) status += ' (check)';
+  $id('a-status').textContent = status;
+  $id('a-status').classList.toggle('warn', !!problem);
+  aRequest++; clearTimeout(aTimer);
+  if ($id('a-live').checked) aTimer = setTimeout(analyzeNow, 250);
+  else showResult('<strong>Recommendation</strong><span class="muted">Press “My turn — analyze now”.</span>');
+}
+
+function renderMoves() {
+  const replay = new Chess(abase);
+  let [, turn, , , , num] = abase.split(' '), html = '';
+  num = +num || 1;
+  aline.forEach((m, i) => {
+    const san = replay.move(m).san;
+    if (turn === 'w') html += `<span class="num">${num}.</span>`;
+    else if (i === 0) html += `<span class="num">${num}…</span>`;
+    html += `<button data-ply="${i + 1}" class="${i + 1 === acursor ? 'cur' : ''}">${esc(san)}</button>`;
+    if (turn === 'b') num++;
+    turn = turn === 'w' ? 'b' : 'w';
+  });
+  $id('a-moves').innerHTML = html;
+}
+
+const showResult = (html) => { $id('a-result').innerHTML = html; };
+
+async function analyzeNow() {
+  clearTimeout(aTimer);
+  const requestId = ++aRequest;
+  const problem = kingProblem();
+  if (problem) return showResult(`<strong>Recommendation</strong><span class="warn">${problem}</span>`);
+  if (agame.game_over()) return showResult('<strong>Recommendation</strong><span class="muted">The game is over in this position.</span>');
+  showResult('<strong>Recommendation</strong><span class="muted">Your model is thinking…</span>');
+  try {
+    const moves = aline.slice(0, acursor).map(m => m.from + m.to + (m.promotion || ''));
+    const r = await fetch('/api/analyse', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fen: abase, moves, nodes: +$id('anodes').value }) });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error);
+    if (requestId !== aRequest) return;
+    aArrow = { from: d.from_square, to: d.to_square };
+    drawArrow();
+    showResult(`<strong class="rec">${esc(d.san)}<span class="squares">${d.from_square} → ${d.to_square}</span></strong>
+      <span class="muted">White eval ${fmt(d.cp)} · line: ${esc(d.pv || d.san)} · ${d.nodes} nodes</span>`);
+  } catch (e) {
+    if (requestId === aRequest) showResult(`<strong>Recommendation</strong><span class="warn">${esc(e.message)}</span>`);
+  }
+}
+
+function drawArrow() {
+  const svg = $id('aarrow'), squares = $id('aboard').querySelector('.board-b72b1');
+  if (!aArrow || !squares) { svg.innerHTML = ''; return; }
+  const wrap = $id('awrap').getBoundingClientRect(), r = squares.getBoundingClientRect();
+  Object.assign(svg.style, { left: `${r.left - wrap.left}px`, top: `${r.top - wrap.top}px`,
+    width: `${r.width}px`, height: `${r.height}px` });
+  svg.setAttribute('viewBox', '0 0 8 8');
+  const white = aboard.orientation() === 'white';
+  const center = (sq) => {
+    const file = sq.charCodeAt(0) - 97, rank = +sq[1];
+    return { x: (white ? file : 7 - file) + 0.5, y: (white ? 8 - rank : rank - 1) + 0.5 };
+  };
+  const a = center(aArrow.from), b = center(aArrow.to);
+  const dx = Math.cos(Math.atan2(b.y - a.y, b.x - a.x)), dy = Math.sin(Math.atan2(b.y - a.y, b.x - a.x));
+  const base = { x: b.x - dx * 0.42, y: b.y - dy * 0.42 };
+  const head = [b, { x: base.x - dy * 0.28, y: base.y + dx * 0.28 }, { x: base.x + dy * 0.28, y: base.y - dx * 0.28 }];
+  const tag = (p, name) => `<g class="tag"><rect x="${p.x - 0.47}" y="${p.y - 0.47}" width="0.36" height="0.26" rx="0.05"/>
+    <text x="${p.x - 0.43}" y="${p.y - 0.27}">${name}</text></g>`;
+  svg.innerHTML = `<rect class="from" x="${a.x - 0.5}" y="${a.y - 0.5}" width="1" height="1"/>
+    <rect class="to" x="${b.x - 0.5}" y="${b.y - 0.5}" width="1" height="1"/>
+    <line class="shaft" x1="${a.x}" y1="${a.y}" x2="${base.x}" y2="${base.y}"/>
+    <polygon class="head" points="${head.map(p => `${p.x},${p.y}`).join(' ')}"/>
+    ${tag(a, aArrow.from)}${tag(b, aArrow.to)}`;
+}
+
+$id('analyze-now').onclick = analyzeNow;
+$id('a-live').onchange = () => { if ($id('a-live').checked) analyzeNow(); };
+$id('anodes').onchange = () => { if ($id('a-live').checked) analyzeNow(); };
+$id('a-edit').onchange = () => {
+  $id('awrap').classList.toggle('hide-spares', !editing());
+  for (const id of ['a-turn', 'a-K', 'a-Q', 'a-k', 'a-q', 'a-ep']) $id(id).disabled = !editing();
+  aboard.resize(); drawArrow();
+};
+for (const id of ['a-turn', 'a-K', 'a-Q', 'a-k', 'a-q', 'a-ep']) $id(id).onchange = () => editPosition(placement());
+$id('a-start').onclick = () => setLine(START_FEN, [], 0);
+$id('a-clear').onclick = () => {
+  if (!editing()) { $id('a-edit').checked = true; $id('a-edit').onchange(); }
+  setLine('8/8/8/8/8/8/8/8 w - - 0 1', [], 0);
+};
+$id('a-first').onclick = () => setLine(abase, aline, 0);
+$id('a-prev').onclick = () => setLine(abase, aline, Math.max(0, acursor - 1));
+$id('a-next').onclick = () => setLine(abase, aline, Math.min(aline.length, acursor + 1));
+$id('a-last').onclick = () => setLine(abase, aline, aline.length);
+$id('a-moves').onclick = (e) => { if (e.target.dataset.ply) setLine(abase, aline, +e.target.dataset.ply); };
+$id('a-flip').onclick = () => { aboard.flip(); drawArrow(); };
+$id('a-load-fen').onclick = () => {
+  let fen = $id('a-fen').value.trim().replace(/\s+/g, ' ');
+  if (fen.split(' ').length === 4) fen += ' 0 1';
+  const check = new Chess().validate_fen(fen);
+  if (!check.valid) { $id('a-status').textContent = 'Invalid FEN: ' + check.error; $id('a-status').classList.add('warn'); return; }
+  setLine(fen, [], 0);
+};
+$id('a-copy-fen').onclick = () => navigator.clipboard?.writeText(agame.fen());
+$id('a-load-pgn').onclick = () => {
+  const pgnGame = new Chess();
+  if (!pgnGame.load_pgn($id('a-pgn').value, { sloppy: true })) {
+    $id('a-status').textContent = 'Could not parse that PGN.'; $id('a-status').classList.add('warn'); return;
+  }
+  const line = pgnGame.history({ verbose: true }).map(m => ({ from: m.from, to: m.to, promotion: m.promotion }));
+  setLine(pgnGame.header().FEN || START_FEN, line, line.length);
+};
+$id('a-fen').value = START_FEN;
+$id('a-status').textContent = 'White to move';
+
+window.addEventListener('resize', () => { board.resize(); rboard.resize(); aboard.resize(); drawArrow(); });
 refresh();
 
 // ---- screen board selection ----

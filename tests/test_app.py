@@ -56,6 +56,51 @@ def test_live_analysis_rejects_invalid_or_finished_positions(client):
     assert client.post("/api/analyse", json={"moves": mate}).status_code == 400
 
 
+def test_analysis_board_page_is_served(client):
+    r = client.get("/")
+    assert b'id="analyze-now"' in r.data and b'id="aarrow"' in r.data and b'id="a-fen"' in r.data
+
+
+def test_analysis_from_fen_returns_squares_for_the_arrow(client):
+    fen = "r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 2 3"
+    r = client.post("/api/analyse", json={"fen": fen, "nodes": 20})
+    assert r.status_code == 200, r.json
+    board = chess.Board(fen)
+    move = chess.Move.from_uci(r.json["move"])
+    assert move in board.legal_moves and r.json["fen"] == fen
+    assert r.json["from_square"] == chess.square_name(move.from_square)
+    assert r.json["to_square"] == chess.square_name(move.to_square)
+    assert r.json["san"] == board.san(move)
+
+
+def test_analysis_from_fen_plays_moves_on_top(client):
+    fen = "4k3/8/8/8/8/8/4P3/4K3 w - - 0 1"
+    r = client.post("/api/analyse", json={"fen": fen, "moves": ["e2e4", "e8d7"], "nodes": 20})
+    assert r.status_code == 200, r.json
+    board = chess.Board(fen)
+    board.push_uci("e2e4"), board.push_uci("e8d7")
+    assert r.json["fen"] == board.fen()
+    assert chess.Move.from_uci(r.json["move"]) in board.legal_moves
+
+
+@pytest.mark.parametrize("fen, reason", [
+    ("not a fen", "invalid FEN"),
+    ("8/8/8/8/8/8/8/4K3 w - - 0 1", "Black has no king"),
+    ("4k3/8/8/8/8/8/8/P3K3 w - - 0 1", "first or last rank"),
+    ("4k3/8/8/8/8/8/8/4K2R w KQkq - 0 1", "castling rights"),
+    ("4k3/8/8/8/8/8/4q3/4K3 b - - 0 1", "not to move is in check"),
+])
+def test_analysis_rejects_illegal_set_up_positions(client, fen, reason):
+    r = client.post("/api/analyse", json={"fen": fen, "nodes": 20})
+    assert r.status_code == 400 and reason in r.json["error"]
+
+
+def test_analysis_rejects_finished_fen(client):
+    stalemate = "7k/5Q2/6K1/8/8/8/8/8 b - - 0 1"
+    r = client.post("/api/analyse", json={"fen": stalemate, "nodes": 20})
+    assert r.status_code == 400 and "over" in r.json["error"]
+
+
 def test_screen_analysis_recognizes_and_analyzes_reference_board(client):
     image = Path("vision_assets/reference_board.png").read_bytes()
     r = client.post("/api/screen-analyse", data={
