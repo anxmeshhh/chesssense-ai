@@ -3,5 +3,6 @@ numpy
 zstandard
 torch
 flask
+Pillow
 requests
 pytest

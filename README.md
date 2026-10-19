@@ -29,7 +29,7 @@ python app.py                                                                # h
 
 During a local practice game, the live coach analyses the current position when it is your turn and shows the engine's top move, evaluation, and principal variation. Search work runs in Flask's request thread, so board interaction remains responsive.
 
-The Play page also has a **Screen board** panel. Choose a screen or window in the browser's screen-sharing prompt, then drag a square over the board to show a live 8×8 grid. The browser keeps this preview local. This currently selects and tracks the board area; it does not recognize pieces or send the captured position to the chess engine.
+The Play page also has a **Screen board** panel. Choose a screen or window in the browser's screen-sharing prompt, then drag a square over the board. The app recognizes the supplied green-and-cream board and outlined Staunton piece set using local image templates, builds a chess position, analyzes it with the existing engine, and draws a move arrow over the screen preview. Enable **Analyze after board changes** for automatic updates. Set the board orientation, side to move, castling rights, and any en-passant target for the first captured position; later single legal moves are tracked from successive positions. The screenshot crop is sent only to the local Flask app. Other piece sets are not supported by this template set. When starting mid-game, repetition history cannot be recovered from pixels alone; reset tracking if the recognized board jumps multiple moves.
 
 Other commands:
 

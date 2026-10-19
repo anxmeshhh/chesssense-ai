@@ -14,6 +14,7 @@ import chess.pgn
 from flask import Flask, jsonify, request, send_from_directory
 
 from search import Engine, value_to_cp
+from vision import BoardRecognitionError, PositionSyncError, analyze_screen_image
 
 # Drop in expected score (on the [-1, 1] value scale) for the mover, as on Lichess.
 LABELS = [(0.3, "blunder"), (0.2, "mistake"), (0.1, "inaccuracy")]
@@ -69,6 +70,54 @@ def create_app(engine) -> Flask:
         return jsonify(move=move.uci(), san=board.san(move),
                        cp=white_cp(info["value"], board.turn),
                        pv=board.variation_san(info["pv"][:8]), nodes=info["nodes"])
+
+    @app.post("/api/screen-analyse")
+    def api_screen_analyse():
+        capture = request.files.get("board")
+        if capture is None:
+            return jsonify(error="missing selected board image"), 400
+        image_bytes = capture.read(4 * 1024 * 1024 + 1)
+        if len(image_bytes) > 4 * 1024 * 1024:
+            return jsonify(error="board capture is too large"), 413
+        previous_fen = request.form.get("previous_fen") or None
+        try:
+            board, played_move, confidence = analyze_screen_image(
+                image_bytes,
+                orientation=request.form.get("orientation", "white"),
+                turn=request.form.get("turn", "w"),
+                castling=request.form.get("castling", "KQkq"),
+                en_passant=request.form.get("en_passant", "-"),
+                previous_fen=previous_fen,
+            )
+        except PositionSyncError as error:
+            return jsonify(error=str(error), reset_required=True), 409
+        except BoardRecognitionError as error:
+            return jsonify(error=str(error)), 422
+        if board.is_game_over():
+            return jsonify(error="the recognized position is already over", fen=board.fen()), 400
+        nodes = nodes_arg({"nodes": request.form.get("nodes", 400)}, 400)
+        with lock:
+            info = engine.analyse(board, nodes=nodes)
+        move = info["move"]
+        if board.gives_check(move):
+            explanation = "The recommended move gives check."
+        elif board.is_capture(move):
+            explanation = "The recommended move captures an opponent's piece."
+        elif board.is_castling(move):
+            explanation = "The recommended move castles the king to safety."
+        else:
+            explanation = "The recommended move has the strongest engine score in this position."
+        return jsonify(
+            fen=board.fen(),
+            move=move.uci(),
+            san=board.san(move),
+            cp=white_cp(info["value"], board.turn),
+            pv=board.variation_san(info["pv"][:8]),
+            nodes=info["nodes"],
+            confidence=round(confidence, 3),
+            played_move=previous_fen and played_move.uci() if played_move else None,
+            explanation=explanation,
+        )
 
     @app.post("/api/review")
     def api_review():

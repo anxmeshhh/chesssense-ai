@@ -32,7 +32,7 @@
   .coach { margin: 12px 0; padding: 12px; border: 1px solid var(--line); border-radius: 8px; background: color-mix(in srgb, var(--accent) 8%, var(--panel)); }
   .coach strong { display: block; margin-bottom: 4px; }
   .capture { margin-top: 16px; }
-  .capture canvas { display: block; width: 100%; max-height: 440px; object-fit: contain; background: #111; border-radius: 6px; touch-action: none; cursor: crosshair; }
+  .capture canvas { display: block; max-width: 100%; max-height: 440px; background: #111; border-radius: 6px; touch-action: none; cursor: crosshair; }
   #moves { font-family: ui-monospace, monospace; font-size: 13px; max-height: 260px; overflow-y: auto; white-space: pre-wrap; }
   table { width: 100%; border-collapse: collapse; font-size: 13px; }
   th, td { text-align: left; padding: 5px 6px; border-bottom: 1px solid var(--line); }
@@ -55,13 +55,25 @@
       <div id="board"></div>
       <div class="panel capture">
         <strong>Screen board</strong>
-        <p class="muted">Share a screen or window, then drag around the chessboard to mark its area.</p>
+        <p class="muted">For practice and analysis boards where engine help is allowed. Share a screen or window, then drag around the chessboard to mark its area.</p>
         <div class="row">
           <button class="primary" id="share-screen">Share screen</button>
           <button id="stop-screen" disabled>Stop sharing</button>
         </div>
+        <div class="row">
+          <label>Board view <select id="screen-orientation"><option value="white">White at bottom</option><option value="black">Black at bottom</option></select></label>
+          <label>Side to move <select id="screen-turn"><option value="w">White</option><option value="b">Black</option></select></label>
+          <label>Castling rights <input id="screen-castling" value="KQkq" maxlength="4" size="5" aria-label="Castling rights, using KQkq or a hyphen"></label>
+          <label>En passant <input id="screen-en-passant" value="-" maxlength="2" size="3" aria-label="En-passant target square or hyphen"></label>
+        </div>
+        <div class="row">
+          <button class="primary" id="analyse-screen" disabled>Analyze board</button>
+          <button id="reset-screen-position" disabled>Reset position tracking</button>
+          <label><input type="checkbox" id="live-screen-analysis" checked> Analyze after board changes</label>
+        </div>
         <canvas id="screen-preview" aria-label="Shared screen preview. Drag to select the chessboard area."></canvas>
         <div class="muted" id="screen-status" aria-live="polite">Screen sharing is off.</div>
+        <div class="coach" id="screen-analysis" aria-live="polite"><strong>Screen analysis</strong><span class="muted">Share a board and select its full square area.</span></div>
       </div>
     </div>
     <div class="panel">
@@ -253,6 +265,11 @@ screenVideo.muted = true;
 screenVideo.playsInline = true;
 let screenStream = null, selectedBoard = null, selectionStart = null, selectionDraft = null;
 let screenFrame = 0, lastScreenDraw = 0;
+let screenFingerprint = null, screenStableSince = 0, analyzedFingerprint = null;
+let screenAnalysisBusy = false, screenAnalysisRequest = 0, screenPreviousFen = null, screenArrow = null;
+const fingerprintCanvas = document.createElement('canvas');
+fingerprintCanvas.width = fingerprintCanvas.height = 32;
+const fingerprintContext = fingerprintCanvas.getContext('2d', { willReadFrequently: true });
 
 function screenPoint(event) {
   const bounds = screenCanvas.getBoundingClientRect();
@@ -292,6 +309,119 @@ function drawScreenPreview(now) {
     }
     screenContext.stroke();
     screenContext.restore();
+    drawScreenMoveArrow();
+    observeScreenBoard(now);
+  }
+}
+
+function drawScreenMoveArrow() {
+  if (!screenArrow || !selectedBoard) return;
+  const fromFile = screenArrow.move.charCodeAt(0) - 97;
+  const fromRank = Number(screenArrow.move[1]);
+  const toFile = screenArrow.move.charCodeAt(2) - 97;
+  const toRank = Number(screenArrow.move[3]);
+  const screenSquare = (file, rank) => {
+    const column = screenArrow.orientation === 'white' ? file : 7 - file;
+    const row = screenArrow.orientation === 'white' ? 8 - rank : rank - 1;
+    return { x: selectedBoard.x + (column + 0.5) * selectedBoard.w / 8,
+      y: selectedBoard.y + (row + 0.5) * selectedBoard.h / 8 };
+  };
+  const start = screenSquare(fromFile, fromRank), end = screenSquare(toFile, toRank);
+  const angle = Math.atan2(end.y - start.y, end.x - start.x);
+  const head = selectedBoard.w / 20;
+  screenContext.save();
+  screenContext.strokeStyle = '#ffca3a';
+  screenContext.fillStyle = '#ffca3a';
+  screenContext.lineWidth = Math.max(5, selectedBoard.w / 70);
+  screenContext.lineCap = 'round';
+  screenContext.shadowColor = 'rgba(0, 0, 0, 0.8)';
+  screenContext.shadowBlur = 4;
+  screenContext.beginPath();
+  screenContext.moveTo(start.x, start.y);
+  screenContext.lineTo(end.x - Math.cos(angle) * head * 0.65, end.y - Math.sin(angle) * head * 0.65);
+  screenContext.stroke();
+  screenContext.beginPath();
+  screenContext.moveTo(end.x, end.y);
+  screenContext.lineTo(end.x - Math.cos(angle - 0.48) * head, end.y - Math.sin(angle - 0.48) * head);
+  screenContext.lineTo(end.x - Math.cos(angle + 0.48) * head, end.y - Math.sin(angle + 0.48) * head);
+  screenContext.closePath();
+  screenContext.fill();
+  screenContext.restore();
+}
+
+function observeScreenBoard(now) {
+  if (!selectedBoard || !screenStream) return;
+  fingerprintContext.drawImage(screenVideo, selectedBoard.x, selectedBoard.y,
+    selectedBoard.w, selectedBoard.h, 0, 0, 32, 32);
+  const pixels = fingerprintContext.getImageData(0, 0, 32, 32).data;
+  let hash = 2166136261;
+  for (let index = 0; index < pixels.length; index += 4) {
+    hash ^= pixels[index];
+    hash = Math.imul(hash, 16777619);
+    hash ^= pixels[index + 1];
+    hash = Math.imul(hash, 16777619);
+    hash ^= pixels[index + 2];
+    hash = Math.imul(hash, 16777619);
+  }
+  if (hash !== screenFingerprint) {
+    screenFingerprint = hash;
+    screenStableSince = now;
+    if (screenPreviousFen) {
+      screenArrow = null;
+      $id('screen-analysis').innerHTML = '<strong>Screen analysis</strong><span class="muted">Board changed; waiting for it to settle…</span>';
+    }
+    return;
+  }
+  if (now - screenStableSince < 650 || !$id('live-screen-analysis').checked
+      || screenAnalysisBusy || hash === analyzedFingerprint) return;
+  analyzeScreenBoard(hash);
+}
+
+async function analyzeScreenBoard(fingerprint = screenFingerprint) {
+  if (!screenStream || !selectedBoard || screenAnalysisBusy) return;
+  screenAnalysisBusy = true;
+  const requestId = ++screenAnalysisRequest;
+  analyzedFingerprint = fingerprint;
+  $id('analyse-screen').disabled = true;
+  $id('screen-analysis').innerHTML = '<strong>Screen analysis</strong><span class="muted">Recognizing pieces and analyzing…</span>';
+  try {
+    const crop = document.createElement('canvas');
+    crop.width = crop.height = 256;
+    crop.getContext('2d').drawImage(screenVideo, selectedBoard.x, selectedBoard.y,
+      selectedBoard.w, selectedBoard.h, 0, 0, crop.width, crop.height);
+    const image = await new Promise((resolve, reject) => crop.toBlob(blob => blob ? resolve(blob) : reject(new Error('Could not encode the screen capture.')), 'image/png'));
+    const form = new FormData();
+    form.append('board', image, 'board.png');
+    form.append('orientation', $id('screen-orientation').value);
+    form.append('turn', $id('screen-turn').value);
+    form.append('castling', $id('screen-castling').value.trim());
+    form.append('en_passant', $id('screen-en-passant').value.trim());
+    form.append('nodes', String(Math.min(400, +$id('nodes').value)));
+    if (screenPreviousFen) form.append('previous_fen', screenPreviousFen);
+    const response = await fetch('/api/screen-analyse', { method: 'POST', body: form });
+    const result = await response.json();
+    if (!response.ok) throw Object.assign(new Error(result.error || 'Screen analysis failed.'), { resetRequired: result.reset_required });
+    if (requestId !== screenAnalysisRequest) return;
+    screenPreviousFen = result.fen;
+    const wasCurrent = fingerprint === screenFingerprint;
+    if (wasCurrent) {
+      screenArrow = { move: result.move, orientation: $id('screen-orientation').value };
+      const evalText = `${result.cp > 0 ? '+' : ''}${(result.cp / 100).toFixed(2)}`;
+      const played = result.played_move ? ` · detected ${result.played_move}` : '';
+      $id('screen-analysis').innerHTML = `<strong>${esc(result.san)} · White eval ${evalText}${played}</strong><span class="muted">${esc(result.explanation)} Line: ${esc(result.pv)} · recognition confidence ${(result.confidence * 100).toFixed(0)}%</span>`;
+      $id('screen-status').textContent = 'Board recognized and analyzed. Arrow shows the suggested move.';
+    }
+  } catch (error) {
+    if (requestId === screenAnalysisRequest) {
+      screenArrow = null;
+      const recovery = error.resetRequired ? ' Click “Reset position tracking” if you started sharing mid-game.' : '';
+      $id('screen-analysis').innerHTML = `<strong>Screen analysis</strong><span class="muted">${esc(error.message)}${recovery}</span>`;
+    }
+  } finally {
+    if (requestId === screenAnalysisRequest) {
+      screenAnalysisBusy = false;
+      $id('analyse-screen').disabled = !screenStream || !selectedBoard;
+    }
   }
 }
 
@@ -321,13 +451,26 @@ function stopScreenShare() {
   screenStream = null;
   screenVideo.srcObject = null;
   selectedBoard = selectionDraft = selectionStart = null;
+  screenPreviousFen = screenArrow = null;
+  screenFingerprint = analyzedFingerprint = null;
+  screenAnalysisRequest++;
+  screenAnalysisBusy = false;
   screenContext.clearRect(0, 0, screenCanvas.width, screenCanvas.height);
   $id('share-screen').disabled = false;
   $id('stop-screen').disabled = true;
+  $id('analyse-screen').disabled = true;
+  $id('reset-screen-position').disabled = true;
   $id('screen-status').textContent = 'Screen sharing is off.';
 }
 
 $id('stop-screen').onclick = stopScreenShare;
+$id('analyse-screen').onclick = () => analyzeScreenBoard();
+$id('reset-screen-position').onclick = () => {
+  screenPreviousFen = null;
+  screenArrow = null;
+  analyzedFingerprint = null;
+  $id('screen-analysis').innerHTML = '<strong>Screen analysis</strong><span class="muted">Tracking reset. Select the side to move, then analyze the current board.</span>';
+};
 screenCanvas.addEventListener('pointerdown', event => {
   if (!screenStream || !screenCanvas.width) return;
   selectionStart = screenPoint(event);
@@ -349,7 +492,13 @@ screenCanvas.addEventListener('pointerup', () => {
     const x = Math.max(0, Math.min(screenCanvas.width - size, centerX - size / 2));
     const y = Math.max(0, Math.min(screenCanvas.height - size, centerY - size / 2));
     selectedBoard = { x, y, w: size, h: size };
-    $id('screen-status').textContent = 'Board area selected. Live preview is active; piece recognition is not connected yet.';
+    screenPreviousFen = null;
+    screenArrow = null;
+    screenFingerprint = analyzedFingerprint = null;
+    $id('analyse-screen').disabled = false;
+    $id('reset-screen-position').disabled = false;
+    $id('screen-status').textContent = 'Board area selected. Waiting for a stable position…';
+    $id('screen-analysis').innerHTML = '<strong>Screen analysis</strong><span class="muted">Waiting to recognize the selected board…</span>';
   } else {
     selectedBoard = null;
     $id('screen-status').textContent = 'Selection too small. Drag around the full board.';

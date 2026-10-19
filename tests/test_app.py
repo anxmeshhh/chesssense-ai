@@ -1,3 +1,6 @@
+import io
+from pathlib import Path
+
 import chess
 import pytest
 import torch
@@ -51,6 +54,19 @@ def test_live_analysis_rejects_invalid_or_finished_positions(client):
     assert client.post("/api/analyse", json={"moves": ["e2e5"]}).status_code == 400
     mate = ["e2e4", "e7e5", "f1c4", "b8c6", "d1h5", "g8f6", "h5f7"]
     assert client.post("/api/analyse", json={"moves": mate}).status_code == 400
+
+
+def test_screen_analysis_recognizes_and_analyzes_reference_board(client):
+    image = Path("vision_assets/reference_board.png").read_bytes()
+    r = client.post("/api/screen-analyse", data={
+        "board": (io.BytesIO(image), "board.png"),
+        "orientation": "white", "turn": "w", "castling": "KQkq", "nodes": "20",
+    }, content_type="multipart/form-data")
+    assert r.status_code == 200, r.json
+    assert r.json["fen"] == chess.STARTING_FEN
+    board = chess.Board(r.json["fen"])
+    assert chess.Move.from_uci(r.json["move"]) in board.legal_moves
+    assert r.json["pv"] and r.json["confidence"] > 0.8
 
 
 def test_illegal_and_finished_positions_rejected(client):
