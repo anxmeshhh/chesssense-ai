@@ -57,7 +57,7 @@ def validate(net, val, device, batch_size, limit):
                                        (top5[:, 0] == moves).float().mean().item(),
                                        (top5 == moves[:, None]).any(1).float().mean().item()])
     net.train()
-    return dict(zip(["val_policy", "val_value_mse", "top1", "top5"], totals / n))
+    return dict(zip(["val_policy", "val_value_mse", "top1", "top5"], (totals / n).tolist()))
 
 
 def save(path, **state):
@@ -99,7 +99,8 @@ def main(argv=None):
     step, best = 0, float("inf")
     last_path, best_path = os.path.join(args.out, "last.pt"), os.path.join(args.out, "best.pt")
     if args.resume and os.path.exists(last_path):
-        ckpt = torch.load(last_path, map_location=device)
+        # Our own file; the scheduler state pickles a bound method, which weights_only rejects.
+        ckpt = torch.load(last_path, map_location=device, weights_only=False)
         if ckpt["sched"]["total_steps"] != total_steps:
             raise ValueError(f"checkpoint was for {ckpt['sched']['total_steps']:,} steps, now {total_steps:,}; "
                              "resume with the original --epochs/--batch or start a new --out")

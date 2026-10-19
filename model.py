@@ -70,8 +70,23 @@ class ChessNet(nn.Module):
         return policy, self.value(x).squeeze(-1)
 
 
+# Older checkpoints stored metrics as numpy floats, which weights_only loading rejects.
+# numpy 1.x (the training env) pickles them under numpy.core, numpy 2.x under numpy._core.
+NUMPY_MULTIARRAY = getattr(np, "_core", np.core).multiarray
+CHECKPOINT_GLOBALS = [NUMPY_MULTIARRAY.scalar, (NUMPY_MULTIARRAY.scalar, "numpy.core.multiarray.scalar"),
+                      np.dtype, type(np.dtype(np.float64))]
+
+
+def load_checkpoint(path: str, device="cpu") -> dict:
+    safe_globals = getattr(torch.serialization, "safe_globals", None)
+    if safe_globals is None:
+        return torch.load(path, map_location=device, weights_only=False)
+    with safe_globals(CHECKPOINT_GLOBALS):
+        return torch.load(path, map_location=device)
+
+
 def load(path: str, device="cpu") -> ChessNet:
-    ckpt = torch.load(path, map_location=device)
+    ckpt = load_checkpoint(path, device)
     net = ChessNet(**ckpt["config"]).to(device)
     net.load_state_dict(ckpt["model"])
     return net.eval()
