@@ -27,7 +27,9 @@ python train.py --data data/2026-09 --out runs/r1 --epochs 3                 # ~
 python app.py                                                                # http://localhost:5000
 ```
 
-During a local practice game, the live coach analyses the current position when it is your turn and shows the engine's top move, evaluation, and principal variation. Search work runs in Flask's request thread, so board interaction remains responsive. The app does not capture or inspect other windows.
+During a local practice game, the live coach analyses the current position when it is your turn and shows the engine's top move, evaluation, and principal variation. Search work runs in Flask's request thread, so board interaction remains responsive.
+
+The Play page also has a **Screen board** panel. Choose a screen or window in the browser's screen-sharing prompt, then drag a square over the board to show a live 8×8 grid. The browser keeps this preview local. This currently selects and tracks the board area; it does not recognize pieces or send the captured position to the chess engine.
 
 Other commands:
 

@@ -31,6 +31,8 @@
   .status { font-weight: 600; margin: 8px 0; }
   .coach { margin: 12px 0; padding: 12px; border: 1px solid var(--line); border-radius: 8px; background: color-mix(in srgb, var(--accent) 8%, var(--panel)); }
   .coach strong { display: block; margin-bottom: 4px; }
+  .capture { margin-top: 16px; }
+  .capture canvas { display: block; width: 100%; max-height: 440px; object-fit: contain; background: #111; border-radius: 6px; touch-action: none; cursor: crosshair; }
   #moves { font-family: ui-monospace, monospace; font-size: 13px; max-height: 260px; overflow-y: auto; white-space: pre-wrap; }
   table { width: 100%; border-collapse: collapse; font-size: 13px; }
   th, td { text-align: left; padding: 5px 6px; border-bottom: 1px solid var(--line); }
@@ -49,7 +51,19 @@
 </header>
 <main>
   <section id="play" class="layout">
-    <div><div id="board"></div></div>
+    <div>
+      <div id="board"></div>
+      <div class="panel capture">
+        <strong>Screen board</strong>
+        <p class="muted">Share a screen or window, then drag around the chessboard to mark its area.</p>
+        <div class="row">
+          <button class="primary" id="share-screen">Share screen</button>
+          <button id="stop-screen" disabled>Stop sharing</button>
+        </div>
+        <canvas id="screen-preview" aria-label="Shared screen preview. Drag to select the chessboard area."></canvas>
+        <div class="muted" id="screen-status" aria-live="polite">Screen sharing is off.</div>
+      </div>
+    </div>
     <div class="panel">
       <div class="row">
         <label>You play <select id="color"><option value="w">White</option><option value="b">Black</option></select></label>
@@ -230,6 +244,119 @@ const esc = (s) => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;
 
 window.addEventListener('resize', () => { board.resize(); rboard.resize(); });
 refresh();
+
+// ---- screen board selection ----
+const screenCanvas = $id('screen-preview');
+const screenContext = screenCanvas.getContext('2d', { willReadFrequently: false });
+const screenVideo = document.createElement('video');
+screenVideo.muted = true;
+screenVideo.playsInline = true;
+let screenStream = null, selectedBoard = null, selectionStart = null, selectionDraft = null;
+let screenFrame = 0, lastScreenDraw = 0;
+
+function screenPoint(event) {
+  const bounds = screenCanvas.getBoundingClientRect();
+  return {
+    x: Math.max(0, Math.min(screenCanvas.width, (event.clientX - bounds.left) * screenCanvas.width / bounds.width)),
+    y: Math.max(0, Math.min(screenCanvas.height, (event.clientY - bounds.top) * screenCanvas.height / bounds.height)),
+  };
+}
+
+function drawScreenPreview(now) {
+  if (!screenStream) return;
+  screenFrame = requestAnimationFrame(drawScreenPreview);
+  if (now - lastScreenDraw < 200 || !screenVideo.videoWidth) return;
+  lastScreenDraw = now;
+  if (screenCanvas.width !== screenVideo.videoWidth || screenCanvas.height !== screenVideo.videoHeight) {
+    screenCanvas.width = screenVideo.videoWidth;
+    screenCanvas.height = screenVideo.videoHeight;
+  }
+  screenContext.drawImage(screenVideo, 0, 0, screenCanvas.width, screenCanvas.height);
+  const region = selectionDraft || selectedBoard;
+  if (region) {
+    screenContext.save();
+    screenContext.fillStyle = 'rgba(0, 0, 0, 0.48)';
+    screenContext.fillRect(0, 0, screenCanvas.width, screenCanvas.height);
+    screenContext.drawImage(screenVideo, region.x, region.y, region.w, region.h,
+      region.x, region.y, region.w, region.h);
+    screenContext.strokeStyle = '#83c98b';
+    screenContext.lineWidth = Math.max(2, screenCanvas.width / 900);
+    screenContext.strokeRect(region.x, region.y, region.w, region.h);
+    screenContext.beginPath();
+    for (let index = 1; index < 8; index++) {
+      const offset = region.w * index / 8;
+      screenContext.moveTo(region.x + offset, region.y);
+      screenContext.lineTo(region.x + offset, region.y + region.h);
+      screenContext.moveTo(region.x, region.y + offset);
+      screenContext.lineTo(region.x + region.w, region.y + offset);
+    }
+    screenContext.stroke();
+    screenContext.restore();
+  }
+}
+
+$id('share-screen').onclick = async () => {
+  if (!navigator.mediaDevices?.getDisplayMedia) {
+    $id('screen-status').textContent = 'Screen sharing is unavailable in this browser.';
+    return;
+  }
+  try {
+    screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
+    screenVideo.srcObject = screenStream;
+    await screenVideo.play();
+    selectedBoard = selectionDraft = selectionStart = null;
+    $id('share-screen').disabled = true;
+    $id('stop-screen').disabled = false;
+    $id('screen-status').textContent = 'Screen shared. Drag to select the chessboard.';
+    screenStream.getVideoTracks()[0].addEventListener('ended', stopScreenShare, { once: true });
+    screenFrame = requestAnimationFrame(drawScreenPreview);
+  } catch (error) {
+    $id('screen-status').textContent = error.name === 'NotAllowedError' ? 'Screen sharing was cancelled.' : `Could not share screen: ${error.message}`;
+  }
+};
+
+function stopScreenShare() {
+  if (screenFrame) cancelAnimationFrame(screenFrame);
+  if (screenStream) screenStream.getTracks().forEach(track => track.stop());
+  screenStream = null;
+  screenVideo.srcObject = null;
+  selectedBoard = selectionDraft = selectionStart = null;
+  screenContext.clearRect(0, 0, screenCanvas.width, screenCanvas.height);
+  $id('share-screen').disabled = false;
+  $id('stop-screen').disabled = true;
+  $id('screen-status').textContent = 'Screen sharing is off.';
+}
+
+$id('stop-screen').onclick = stopScreenShare;
+screenCanvas.addEventListener('pointerdown', event => {
+  if (!screenStream || !screenCanvas.width) return;
+  selectionStart = screenPoint(event);
+  selectionDraft = { x: selectionStart.x, y: selectionStart.y, w: 0, h: 0 };
+  screenCanvas.setPointerCapture(event.pointerId);
+});
+screenCanvas.addEventListener('pointermove', event => {
+  if (!selectionStart) return;
+  const point = screenPoint(event);
+  selectionDraft = { x: Math.min(point.x, selectionStart.x), y: Math.min(point.y, selectionStart.y),
+    w: Math.abs(point.x - selectionStart.x), h: Math.abs(point.y - selectionStart.y) };
+});
+screenCanvas.addEventListener('pointerup', () => {
+  if (!selectionDraft) return;
+  const size = Math.min(selectionDraft.w, selectionDraft.h);
+  if (size >= 64) {
+    const centerX = selectionDraft.x + selectionDraft.w / 2;
+    const centerY = selectionDraft.y + selectionDraft.h / 2;
+    const x = Math.max(0, Math.min(screenCanvas.width - size, centerX - size / 2));
+    const y = Math.max(0, Math.min(screenCanvas.height - size, centerY - size / 2));
+    selectedBoard = { x, y, w: size, h: size };
+    $id('screen-status').textContent = 'Board area selected. Live preview is active; piece recognition is not connected yet.';
+  } else {
+    selectedBoard = null;
+    $id('screen-status').textContent = 'Selection too small. Drag around the full board.';
+  }
+  selectionDraft = selectionStart = null;
+});
+window.addEventListener('pagehide', stopScreenShare);
 </script>
 </body>
 </html>
