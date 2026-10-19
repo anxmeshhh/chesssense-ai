@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chess Engine</title>
+<link rel="stylesheet" href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css">
+<style>
+  :root { --bg: #f6f5f2; --panel: #ffffff; --text: #1d1d1f; --muted: #6b6b70; --line: #e2e0db;
+          --accent: #4a6fa5; --blunder: #c0392b; --mistake: #d68910; --inacc: #b7950b; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #18181a; --panel: #232326; --text: #ececee; --muted: #9a9aa0; --line: #38383c;
+            --accent: #7aa2dc; --blunder: #ec7063; --mistake: #f0b27a; --inacc: #f7dc6f; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.45 system-ui, sans-serif; }
+  header { padding: 14px 16px; border-bottom: 1px solid var(--line); display: flex; gap: 8px; align-items: center; }
+  header h1 { font-size: 17px; margin: 0 12px 0 0; }
+  .tab { background: none; border: 1px solid var(--line); color: var(--text); padding: 6px 14px; border-radius: 6px; cursor: pointer; }
+  .tab.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  main { max-width: 1040px; margin: 0 auto; padding: 16px; }
+  .layout { display: grid; grid-template-columns: minmax(0, 480px) minmax(0, 1fr); gap: 20px; }
+  @media (max-width: 760px) { .layout { grid-template-columns: 1fr; } }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; }
+  select, button, textarea { font: inherit; color: var(--text); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; cursor: pointer; }
+  button:disabled { opacity: .5; cursor: default; }
+  textarea { width: 100%; min-height: 140px; font-family: ui-monospace, monospace; font-size: 13px; }
+  .muted { color: var(--muted); }
+  .status { font-weight: 600; margin: 8px 0; }
+  #moves { font-family: ui-monospace, monospace; font-size: 13px; max-height: 260px; overflow-y: auto; white-space: pre-wrap; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 5px 6px; border-bottom: 1px solid var(--line); }
+  tbody tr { cursor: pointer; }
+  tbody tr:hover, tbody tr.sel { background: color-mix(in srgb, var(--accent) 15%, transparent); }
+  .blunder { color: var(--blunder); font-weight: 600; } .mistake { color: var(--mistake); font-weight: 600; } .inaccuracy { color: var(--inacc); }
+  .scroll { max-height: 460px; overflow-y: auto; }
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Chess Engine</h1>
+  <button class="tab active" data-tab="play">Play</button>
+  <button class="tab" data-tab="review">Review</button>
+</header>
+<main>
+  <section id="play" class="layout">
+    <div><div id="board"></div></div>
+    <div class="panel">
+      <div class="row">
+        <label>You play <select id="color"><option value="w">White</option><option value="b">Black</option></select></label>
+        <label>Strength <select id="nodes">
+          <option value="1">Instant (policy only)</option>
+          <option value="100">Easy (100 nodes)</option>
+          <option value="400">Medium (400)</option>
+          <option value="800" selected>Strong (800)</option>
+          <option value="2000">Max (2000)</option>
+        </select></label>
+      </div>
+      <div class="row">
+        <button class="primary" id="new">New game</button>
+        <button id="undo">Undo</button>
+        <button id="flip">Flip</button>
+      </div>
+      <div class="status" id="status"></div>
+      <div class="muted" id="eval"></div>
+      <div id="moves"></div>
+    </div>
+  </section>
+
+  <section id="review" class="layout hidden">
+    <div>
+      <div id="rboard"></div>
+      <p class="muted" id="rinfo"></p>
+    </div>
+    <div class="panel">
+      <p class="muted">Paste the PGN of a <b>finished</b> game (on chess.com: game page &rarr; Share &rarr; PGN).</p>
+      <textarea id="pgn" placeholder="[Event ...]&#10;1. e4 e5 2. Nf3 ..."></textarea>
+      <div class="row" style="margin-top:8px">
+        <label>Depth <select id="rnodes"><option value="150">Quick</option><option value="300" selected>Normal</option><option value="800">Deep (slow)</option></select></label>
+        <button class="primary" id="analyse">Analyse</button>
+        <span class="muted" id="rstatus"></span>
+      </div>
+      <div id="rsummary"></div>
+      <div class="scroll"><table class="hidden" id="rtable">
+        <thead><tr><th>#</th><th>Played</th><th>Best</th><th>Eval</th><th></th></tr></thead><tbody></tbody>
+      </table></div>
+    </div>
+  </section>
+</main>
+
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script src="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+<script>
+const PIECES = 'https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png';
+const $id = (id) => document.getElementById(id);
+const fmt = (cp) => (cp > 0 ? '+' : '') + (cp / 100).toFixed(2);
+
+// ---- tabs ----
+document.querySelectorAll('.tab').forEach(t => t.onclick = () => {
+  document.querySelectorAll('.tab').forEach(x => x.classList.toggle('active', x === t));
+  for (const id of ['play', 'review']) $id(id).classList.toggle('hidden', id !== t.dataset.tab);
+  (t.dataset.tab === 'play' ? board : rboard).resize();
+});
+
+// ---- play ----
+const game = new Chess();
+let human = 'w', busy = false;
+const board = Chessboard('board', {
+  draggable: true, position: 'start', pieceTheme: PIECES,
+  onDragStart: (src, piece) => !(busy || game.game_over() || game.turn() !== human || piece[0] !== human),
+  onDrop: (from, to) => {
+    if (!game.move({ from, to, promotion: 'q' })) return 'snapback';
+    refresh(); setTimeout(engineMove, 30);
+  },
+  onSnapEnd: () => board.position(game.fen()),
+});
+
+function refresh() {
+  let s;
+  if (game.in_checkmate()) s = 'Checkmate — ' + (game.turn() === 'w' ? 'Black' : 'White') + ' wins';
+  else if (game.in_draw() || game.in_stalemate() || game.in_threefold_repetition()) s = 'Draw';
+  else s = (busy ? 'Engine thinking…' : (game.turn() === human ? 'Your move' : 'Engine to move')) + (game.in_check() ? ' (check)' : '');
+  $id('status').textContent = s;
+  $id('moves').textContent = game.pgn({ max_width: 40, newline_char: '\n' });
+}
+
+async function engineMove() {
+  if (game.game_over() || game.turn() === human) return;
+  busy = true; refresh();
+  try {
+    const moves = game.history({ verbose: true }).map(m => m.from + m.to + (m.promotion || ''));
+    const r = await fetch('/api/move', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ moves, nodes: +$id('nodes').value }) });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error);
+    game.move({ from: d.move.slice(0, 2), to: d.move.slice(2, 4), promotion: d.move[4] });
+    board.position(game.fen());
+    $id('eval').textContent = `Engine eval ${fmt(d.cp)} (White's view) · line: ${d.pv}`;
+  } catch (e) { $id('eval').textContent = 'Error: ' + e.message; }
+  busy = false; refresh();
+}
+
+$id('new').onclick = () => {
+  human = $id('color').value; game.reset();
+  board.orientation(human === 'w' ? 'white' : 'black'); board.position('start');
+  $id('eval').textContent = ''; refresh(); engineMove();
+};
+$id('undo').onclick = () => {
+  if (busy) return;
+  game.undo(); if (game.turn() !== human) game.undo();
+  board.position(game.fen()); refresh();
+};
+$id('flip').onclick = () => board.flip();
+
+// ---- review ----
+const rboard = Chessboard('rboard', { position: 'start', pieceTheme: PIECES });
+$id('analyse').onclick = async () => {
+  const btn = $id('analyse'); btn.disabled = true;
+  $id('rstatus').textContent = 'Analysing… (about 0.3–1 s per move)';
+  try {
+    const r = await fetch('/api/review', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pgn: $id('pgn').value, nodes: +$id('rnodes').value }) });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error);
+    showReview(d); $id('rstatus').textContent = '';
+  } catch (e) { $id('rstatus').textContent = 'Error: ' + e.message; }
+  btn.disabled = false;
+};
+
+function showReview(d) {
+  const sumRow = (name, s) => `<tr><td>${name}</td><td>${s.inaccuracy}</td><td>${s.mistake}</td><td>${s.blunder}</td><td>${s.avg_loss}</td></tr>`;
+  $id('rsummary').innerHTML = `<p><b>${esc(d.white)}</b> vs <b>${esc(d.black)}</b> · ${d.result}</p>
+    <table><thead><tr><th></th><th>Inacc.</th><th>Mistakes</th><th>Blunders</th><th>Avg loss</th></tr></thead>
+    <tbody>${sumRow('White', d.summary.white)}${sumRow('Black', d.summary.black)}</tbody></table><br>`;
+  const tbody = $id('rtable').querySelector('tbody');
+  tbody.innerHTML = '';
+  d.rows.forEach(row => {
+    const tr = document.createElement('tr');
+    const num = Math.ceil(row.ply / 2) + (row.ply % 2 ? '.' : '…');
+    tr.innerHTML = `<td>${num}</td><td class="${row.label}">${esc(row.san)}</td>
+      <td>${row.label ? esc(row.best) : ''}</td><td>${fmt(row.cp)}</td><td class="${row.label}">${row.label}</td>`;
+    tr.onclick = () => {
+      tbody.querySelectorAll('tr').forEach(x => x.classList.remove('sel')); tr.classList.add('sel');
+      rboard.position(row.fen_before);
+      $id('rinfo').textContent = `Before ${num} ${row.san}` + (row.label ? ` — engine preferred ${row.best}` : '');
+    };
+    tbody.appendChild(tr);
+  });
+  $id('rtable').classList.remove('hidden');
+  rboard.position(d.final_fen);
+}
+const esc = (s) => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+
+window.addEventListener('resize', () => { board.resize(); rboard.resize(); });
+refresh();
+</script>
+</body>
+</html>

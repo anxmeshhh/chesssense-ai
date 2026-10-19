@@ -1,0 +1,11 @@
+# data, checkpoints and downloaded tools are large or regenerable
+data/
+runs/
+tools/
+*.pt
+*.npz
+*.log
+
+__pycache__/
+.pytest_cache/
+.venv/
