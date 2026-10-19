@@ -44,3 +44,7 @@ Training is in progress. Final move accuracy and Elo estimates will be added her
 
 Knightshade is for local play, reviewing finished games, and Lichess BOT accounts, where bots
 are allowed and labelled. Don't use it for help during live games against people on any site.
+
+## License
+
+MIT, see [LICENSE](LICENSE).
