@@ -73,6 +73,35 @@ def test_analysis_from_fen_returns_squares_for_the_arrow(client):
     assert r.json["san"] == board.san(move)
 
 
+def test_analysis_returns_top_lines_for_arrows(client):
+    r = client.post("/api/analyse", json={"moves": ["e2e4"], "nodes": 60, "multipv": 3})
+    assert r.status_code == 200, r.json
+    board = chess.Board()
+    board.push_uci("e2e4")
+    lines = r.json["lines"]
+    assert 1 <= len(lines) <= 3 and lines[0]["move"] == r.json["move"]
+    for line in lines:
+        move = chess.Move.from_uci(line["move"])
+        assert move in board.legal_moves and line["san"] == board.san(move)
+        assert line["from_square"] == chess.square_name(move.from_square)
+        assert line["to_square"] == chess.square_name(move.to_square)
+        assert line["pv_uci"][0] == line["move"] and isinstance(line["cp"], int)
+    assert len(client.post("/api/analyse", json={"nodes": 20}).json["lines"]) == 1
+
+
+def test_analysis_board_has_engine_lines_and_arrow_modes(client):
+    page = client.get("/").data
+    for marker in (b'id="a-lines"', b'id="a-evalbar"', b'data-mode="engine"', b'data-mode="moves"', b'data-mode="both"'):
+        assert marker in page
+
+
+def test_play_page_has_engine_and_1v1_modes(client):
+    page = client.get("/").data
+    for marker in (b'data-mode="engine"', b'data-mode="friend"', b'id="p-coach"', b'id="p-lines"',
+                   b'id="parrow"', b'id="p-me"', b'id="p-friend"'):
+        assert marker in page
+
+
 def test_analysis_from_fen_plays_moves_on_top(client):
     fen = "4k3/8/8/8/8/8/4P3/4K3 w - - 0 1"
     r = client.post("/api/analyse", json={"fen": fen, "moves": ["e2e4", "e8d7"], "nodes": 20})

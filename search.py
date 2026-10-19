@@ -136,6 +136,17 @@ class MCTS:
         return root
 
 
+def principal_variation(node: Node) -> list[chess.Move]:
+    """Follow the most-visited child from `node` (the first step is taken even if unvisited)."""
+    pv = []
+    while node.children:
+        node = max(node.children, key=lambda c: (c.visits, c.prior))
+        if not node.visits and pv:
+            break
+        pv.append(node.move)
+    return pv
+
+
 class Engine:
     """Convenience wrapper: load a checkpoint and pick or analyse moves."""
 
@@ -144,18 +155,15 @@ class Engine:
         self.mcts = MCTS(model.load(checkpoint, device), **mcts_kwargs)
         self.nodes = nodes
 
-    def analyse(self, board: chess.Board, nodes=None, movetime=None) -> dict:
+    def analyse(self, board: chess.Board, nodes=None, movetime=None, multipv=1) -> dict:
         root = self.mcts.search(board, nodes or self.nodes, movetime)
         ranked = sorted(root.children, key=lambda c: (c.visits, c.prior), reverse=True)
-        pv, node = [], root
-        while node.children:
-            node = max(node.children, key=lambda c: (c.visits, c.prior))
-            if not node.visits and pv:
-                break
-            pv.append(node.move)
         value = -root.q()                              # side to move
-        return {"move": ranked[0].move, "value": value, "cp": value_to_cp(value), "pv": pv,
-                "nodes": root.visits,
+        # A child's Q is for the player who made the move into it, i.e. the side to move here.
+        lines = [{"move": c.move, "value": c.q(), "visits": c.visits, "pv": [c.move] + principal_variation(c)}
+                 for c in ranked[:multipv] if c.visits]
+        return {"move": ranked[0].move, "value": value, "cp": value_to_cp(value), "pv": principal_variation(root),
+                "nodes": root.visits, "lines": lines,
                 "top": [{"move": c.move, "visits": c.visits, "prior": c.prior,
                          "value": c.q() if c.visits else None} for c in ranked[:5]]}
 

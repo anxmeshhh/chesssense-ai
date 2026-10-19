@@ -56,6 +56,26 @@ def test_engine_wrapper(tmp_path):
     assert engine.choose(board, nodes=1) in board.legal_moves         # policy only
 
 
+def test_engine_multipv_lines(tmp_path):
+    net = model.ChessNet(blocks=1, channels=16)
+    ckpt = tmp_path / "net.pt"
+    torch.save({"model": net.state_dict(), "config": net.config}, ckpt)
+    engine = search.Engine(str(ckpt), nodes=200, device="cpu")
+    board = chess.Board()
+    info = engine.analyse(board, multipv=3)
+    lines = info["lines"]
+    assert len(lines) == 3 and lines[0]["move"] == info["move"]
+    assert len({line["move"] for line in lines}) == 3
+    assert [line["visits"] for line in lines] == sorted((line["visits"] for line in lines), reverse=True)
+    for line in lines:
+        assert line["pv"][0] == line["move"] and -1 <= line["value"] <= 1
+        replay = board.copy()
+        for move in line["pv"]:
+            assert move in replay.legal_moves
+            replay.push(move)
+    assert len(engine.analyse(board)["lines"]) == 1          # default stays a single line
+
+
 def test_value_to_cp():
     assert search.value_to_cp(0) == 0
     assert search.value_to_cp(0.5) > 100 and search.value_to_cp(-0.5) < -100

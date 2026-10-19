@@ -27,15 +27,23 @@ python train.py --data data/2026-09 --out runs/r1 --epochs 3                 # ~
 python app.py                                                                # http://localhost:5000
 ```
 
-During a local practice game, the live coach analyses the current position when it is your turn and shows the engine's top move, evaluation, and principal variation. Search work runs in Flask's request thread, so board interaction remains responsive.
+### Play
+
+The **Play** tab has two modes:
+
+- **vs Engine**: you play your trained model at the strength you choose.
+- **1v1 with a friend**: two people share one board and take turns (pass and play). Enter both names; **You play** sets your colour and which side faces you.
+
+**Recommendations for** picks whose moves get your model's top three lines, each with an eval, a "g1 → f3" label and its own arrow: **My side**, **Both sides** (1v1 only) or **Off**. Hover a line to isolate its arrow, or click it to play the move. Search work runs in Flask's request thread, so the board stays responsive.
 
 ### Analysis board
 
 The **Analysis** tab is a study board for any position:
 
-- **Set up a position**: tick **Edit position** to drag pieces from the trays above and below the board, or drag a piece off the board to remove it. Choose the side to move, castling rights (impossible rights are dropped automatically) and the en-passant square. **Clear board** and **Start position** reset it.
+- **Set up a position**: press **Setup** under the board to drag pieces from the trays above and below the board, or drag a piece off the board to remove it. Choose the side to move, castling rights (impossible rights are dropped automatically) and the en-passant square. **Clear** empties the board and **Start position** resets it.
 - **Load a position**: paste a FEN and press **Load FEN**, or open **Import PGN** and step through the game with the arrow buttons or by clicking a move.
-- **Ask the model**: **My turn — analyze now** runs your trained model on the position. The recommendation appears as an arrow on the board with both squares labelled, plus a "g1 → f3" label, the evaluation and the expected line. With **Live updates** on, every move or edit is analyzed automatically.
+- **Ask the model**: **My turn — analyze now** runs your trained model and lists its top three moves, each with its evaluation, a "g1 → f3" square label, the expected line and how many search visits it got. Each line has its own coloured arrow on the board (gold for the best move, then magenta and pink), and the eval bar beside the board shows who is better. Hover over a line to show only its arrow, or click it to play the move. With **Live updates** on, every move or edit is analyzed automatically.
+- **Arrows**: **Engine** shows the model's moves, **Moves** shows the next move of a loaded game, and **Both** shows them together. The last move played is highlighted. Use the arrow keys, Home and End to step through a game.
 
 Illegal set-ups (missing king, pawns on the back rank, the side not to move in check, and so on) are reported instead of analyzed.
 

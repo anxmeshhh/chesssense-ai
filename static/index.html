@@ -49,17 +49,67 @@
   .arrow .shaft { stroke: var(--arrow); stroke-width: .17; stroke-linecap: round; opacity: .9; }
   .arrow .head { fill: var(--arrow); opacity: .9; }
   .arrow .from, .arrow .to { fill: var(--arrow); fill-opacity: .22; stroke: var(--arrow); stroke-width: .05; }
-  .arrow .tag rect { fill: rgba(0, 0, 0, .72); }
-  .arrow .tag text { fill: #fff; font: 600 .2px ui-monospace, monospace; }
-  .rec { font-size: 18px; }
-  .rec .squares { margin-left: 8px; padding: 1px 8px; border-radius: 6px; background: var(--arrow); color: #1d1d1f; font-family: ui-monospace, monospace; }
-  .movelist { font-family: ui-monospace, monospace; font-size: 13px; max-height: 220px; overflow-y: auto; line-height: 2; }
-  .movelist button { padding: 1px 6px; margin-right: 2px; cursor: pointer; }
-  .movelist button.cur { background: var(--accent); border-color: var(--accent); color: #fff; }
-  .movelist .num { margin: 0 2px 0 6px; color: var(--muted); }
+  .movelist { font-family: ui-monospace, monospace; font-size: 13px; max-height: 200px; overflow-y: auto; line-height: 1.9; }
+  .movelist button { border: 0; background: none; padding: 1px 5px; border-radius: 4px; cursor: pointer; font: inherit; }
+  .movelist button:hover { background: color-mix(in srgb, var(--teal) 14%, transparent); }
+  .movelist button.cur { background: var(--teal); color: #fff; font-weight: 700; }
+  .movelist .num { margin: 0 1px 0 6px; color: var(--muted); }
   details { margin-bottom: 10px; }
   .warn { color: var(--blunder); }
+
+  /* ---- analysis studio ---- */
+  #analysis, #play { --teal: #1a9583; --sq-light: #eeeed2; --sq-dark: #5d9b80; --sq-hl-light: #d4d880; --sq-hl-dark: #a9c05c; }
+  @media (prefers-color-scheme: dark) { #analysis, #play { --teal: #35c2ab; } }
+  main:has(> #analysis:not(.hidden)) { max-width: 1280px; }
+  #analysis.layout { grid-template-columns: minmax(0, 540px) minmax(0, 1fr); }
+  #analysis .board-row { display: flex; gap: 8px; align-items: flex-start; }
+  #analysis .board-row .board-wrap { flex: 1; min-width: 0; }
+  #analysis .board-b72b1, #board .board-b72b1 { border: 0; border-radius: 4px; overflow: hidden; }
+  #analysis .white-1e1d7, #board .white-1e1d7 { background-color: var(--sq-light); color: var(--sq-dark); }
+  #analysis .black-3c85d, #board .black-3c85d { background-color: var(--sq-dark); color: var(--sq-light); }
+  #analysis .white-1e1d7.hl, #board .white-1e1d7.hl { background-color: var(--sq-hl-light); }
+  #analysis .black-3c85d.hl, #board .black-3c85d.hl { background-color: var(--sq-hl-dark); }
+  #play .studio-side { padding: 0; overflow: hidden; align-self: start; }
+  #play #moves { max-height: 180px; }
+  .evalbar { position: relative; flex: 0 0 18px; height: 320px; border-radius: 4px; overflow: hidden; background: #403d39; }
+  .evalbar .evalfill { position: absolute; left: 0; right: 0; bottom: 0; height: 50%; background: #f3f3ef; transition: height .35s ease; }
+  .evalbar.flipped .evalfill { bottom: auto; top: 0; }
+  .evalbar span { position: absolute; left: 0; right: 0; bottom: 4px; text-align: center; font: 700 9px ui-monospace, monospace; color: #403d39; }
+  .evalbar span.top { bottom: auto; top: 4px; color: #f3f3ef; }
+  .board-nav, .board-tools { display: grid; grid-template-columns: repeat(4, 1fr); margin-left: 26px; background: var(--panel); border: 1px solid var(--line); }
+  .board-nav { margin-top: 6px; border-radius: 6px 6px 0 0; }
+  .board-tools { grid-template-columns: repeat(3, 1fr); border-top: 0; border-radius: 0 0 6px 6px; }
+  .board-nav button, .board-tools button { border: 0; border-radius: 0; background: none; padding: 8px; cursor: pointer; color: var(--muted); }
+  .board-nav button { font-size: 15px; line-height: 1; padding: 8px; }
+  .board-nav button:hover, .board-tools button:hover { color: var(--text); }
+  .board-tools button.on { color: var(--teal); font-weight: 600; }
+  #analysis .studio-side { padding: 0; overflow: hidden; }
+  .engine-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 9px 14px; border-bottom: 1px solid var(--line); font-size: 13px; }
+  .engine-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--teal); box-shadow: 0 0 0 3px color-mix(in srgb, var(--teal) 25%, transparent); }
+  .engine-dot.busy { animation: pulse 1s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity: .3; } }
+  .seg { display: inline-flex; gap: 2px; }
+  .seg button { border: 0; background: none; padding: 3px 9px; border-radius: 4px; cursor: pointer; color: var(--muted); font-size: 13px; }
+  .seg button.on { background: color-mix(in srgb, var(--teal) 22%, transparent); color: var(--teal); font-weight: 600; }
+  .engine-eval { margin-left: auto; font: 700 15px ui-monospace, monospace; }
+  .lines { border-bottom: 1px solid var(--line); }
+  .line-row { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; color: var(--text); background: none; cursor: pointer;
+              border: 0; border-left: 3px solid var(--line-color); border-bottom: 1px solid var(--line); border-radius: 0;
+              padding: 9px 14px 9px 11px; font: 13px/1.4 ui-monospace, monospace; }
+  .line-row:last-child { border-bottom: 0; }
+  .line-row:hover, .line-row:focus-visible { background: color-mix(in srgb, var(--teal) 9%, transparent); }
+  .line-eval { flex: 0 0 auto; min-width: 54px; text-align: center; padding: 3px 6px; border-radius: 4px; font-weight: 700;
+               background: color-mix(in srgb, var(--teal) 20%, transparent); color: var(--teal); }
+  .line-eval.neg { background: color-mix(in srgb, var(--text) 12%, transparent); color: var(--text); }
+  .line-sq { flex: 0 0 auto; padding: 1px 7px; border-radius: 4px; background: var(--line-color); color: #1d1d1f; font-weight: 700; }
+  .line-pv { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .line-n { flex: 0 0 auto; color: var(--muted); font-size: 11px; }
+  .line-empty { padding: 16px 14px; font-size: 13px; }
+  .studio-body { padding: 12px 14px; }
+  .setup { margin: 10px 0; padding: 10px 12px; border: 1px dashed var(--line); border-radius: 8px; }
+  @media (max-width: 520px) { .line-n { display: none; } .line-row { gap: 8px; } }
 </style>
+
 </head>
 <body>
 <header>
@@ -71,7 +121,7 @@
 <main>
   <section id="play" class="layout">
     <div>
-      <div id="board"></div>
+      <div class="board-wrap" id="pwrap"><div id="board"></div><svg class="arrow" id="parrow" aria-hidden="true"></svg></div>
       <div class="panel capture">
         <strong>Screen board</strong>
         <p class="muted">For practice and analysis boards where engine help is allowed. Share a screen or window, then drag around the chessboard to mark its area.</p>
@@ -95,84 +145,123 @@
         <div class="coach" id="screen-analysis" aria-live="polite"><strong>Screen analysis</strong><span class="muted">Share a board and select its full square area.</span></div>
       </div>
     </div>
-    <div class="panel">
-      <div class="row">
-        <label>You play <select id="color"><option value="w">White</option><option value="b">Black</option></select></label>
-        <label>Strength <select id="nodes">
-          <option value="1">Instant (policy only)</option>
-          <option value="100">Easy (100 nodes)</option>
-          <option value="400">Medium (400)</option>
-          <option value="800" selected>Strong (800)</option>
-          <option value="2000">Max (2000)</option>
-        </select></label>
+    <div class="panel studio-side">
+      <div class="engine-bar">
+        <b>Mode</b>
+        <div class="seg" id="p-mode" role="group" aria-label="Game mode">
+          <button data-mode="engine" class="on">vs Engine</button><button data-mode="friend">1v1 with a friend</button>
+        </div>
       </div>
-      <div class="row">
-        <button class="primary" id="new">New game</button>
-        <button id="undo">Undo</button>
-        <button id="flip">Flip</button>
+      <div class="studio-body">
+        <div class="row">
+          <label>You play <select id="color"><option value="w">White</option><option value="b">Black</option></select></label>
+          <span id="p-engine-opts"><label>Strength <select id="nodes">
+            <option value="1">Instant (policy only)</option>
+            <option value="100">Easy (100 nodes)</option>
+            <option value="400">Medium (400)</option>
+            <option value="800" selected>Strong (800)</option>
+            <option value="2000">Max (2000)</option>
+          </select></label></span>
+        </div>
+        <div class="row hidden" id="p-friend-opts">
+          <label>Your name <input type="text" id="p-me" placeholder="You" size="10" maxlength="24"></label>
+          <label>Friend <input type="text" id="p-friend" placeholder="Friend" size="10" maxlength="24"></label>
+        </div>
+        <div class="row">
+          <label>Recommendations for <select id="p-coach">
+            <option value="me" selected>My side</option>
+            <option value="both" id="p-coach-both" disabled>Both sides (1v1)</option>
+            <option value="off">Off</option>
+          </select></label>
+        </div>
+        <div class="row">
+          <button class="primary" id="new">New game</button>
+          <button id="undo">Undo</button>
+          <button id="flip">Flip</button>
+        </div>
+        <div class="status" id="status"></div>
+        <div class="muted" id="eval"></div>
       </div>
-      <div class="status" id="status"></div>
-      <div class="muted" id="eval"></div>
-      <div class="coach" id="coach" aria-live="polite"><strong>Live coach</strong><span class="muted">Waiting for a position…</span></div>
-      <div id="moves"></div>
+      <div class="engine-bar">
+        <span class="engine-dot" id="p-dot"></span><b id="coach">Recommendations</b>
+      </div>
+      <div class="lines" id="p-lines" aria-live="polite"></div>
+      <div class="studio-body"><div id="moves"></div></div>
     </div>
   </section>
 
   <section id="analysis" class="layout hidden">
     <div>
-      <div class="board-wrap hide-spares" id="awrap">
-        <div id="aboard"></div>
-        <svg class="arrow" id="aarrow" aria-hidden="true"></svg>
+      <div class="board-row">
+        <div class="evalbar" id="a-evalbar" aria-hidden="true"><div class="evalfill" id="a-evalfill"></div><span id="a-evaltext"></span></div>
+        <div class="board-wrap hide-spares" id="awrap">
+          <div id="aboard"></div>
+          <svg class="arrow" id="aarrow" aria-hidden="true"></svg>
+        </div>
       </div>
-      <div class="row" style="margin-top:10px">
-        <button id="a-first" aria-label="Go to the first position">&#x23EE;</button>
-        <button id="a-prev" aria-label="Back one move">&#x25C0;</button>
-        <button id="a-next" aria-label="Forward one move">&#x25B6;</button>
-        <button id="a-last" aria-label="Go to the last position">&#x23ED;</button>
-        <button id="a-flip">Flip</button>
+      <div class="board-nav">
+        <button id="a-first" aria-label="Go to the first position" title="First (Home)">&#x23EE;</button>
+        <button id="a-prev" aria-label="Back one move" title="Back (Left arrow)">&#x25C0;</button>
+        <button id="a-next" aria-label="Forward one move" title="Forward (Right arrow)">&#x25B6;</button>
+        <button id="a-last" aria-label="Go to the last position" title="Last (End)">&#x23ED;</button>
+      </div>
+      <div class="board-tools">
+        <button id="a-setup" aria-pressed="false">&#x25A6; Setup</button>
+        <button id="a-flip">&#x21C5; Flip</button>
+        <button id="a-clear">&#x2715; Clear</button>
       </div>
     </div>
-    <div class="panel">
-      <p class="muted">Set up any position, or load a FEN or PGN, then ask your model for its recommendation. For your own study and practice.</p>
-      <div class="row">
-        <button class="primary" id="analyze-now">My turn — analyze now</button>
-        <label><input type="checkbox" id="a-live" checked> Live updates</label>
-        <label>Depth <select id="anodes">
-          <option value="100">Quick (100 nodes)</option>
-          <option value="400" selected>Normal (400)</option>
-          <option value="800">Deep (800)</option>
-          <option value="2000">Max (2000)</option>
-        </select></label>
+    <div class="panel studio-side">
+      <div class="engine-bar">
+        <span class="engine-dot" id="a-dot"></span><b>ChessSense model</b><span class="muted" id="a-depth">400 nodes</span>
+        <span class="muted">Arrows:</span>
+        <div class="seg" id="a-arrows" role="group" aria-label="Arrows to show">
+          <button data-mode="engine" class="on">Engine</button><button data-mode="moves">Moves</button><button data-mode="both">Both</button>
+        </div>
+        <span class="engine-eval" id="a-eval"></span>
       </div>
-      <div class="coach" id="a-result" aria-live="polite"><strong>Recommendation</strong><span class="muted">Press “My turn — analyze now”.</span></div>
-      <div class="status" id="a-status" aria-live="polite"></div>
-      <div class="row">
-        <label><input type="checkbox" id="a-edit"> Edit position</label>
-        <button id="a-start">Start position</button>
-        <button id="a-clear">Clear board</button>
-        <label>Promote to <select id="a-promo"><option value="q">Queen</option><option value="r">Rook</option><option value="b">Bishop</option><option value="n">Knight</option></select></label>
+      <div class="lines" id="a-lines" aria-live="polite"></div>
+      <div class="studio-body">
+        <div class="row">
+          <button class="primary" id="analyze-now">My turn — analyze now</button>
+          <label><input type="checkbox" id="a-live" checked> Live updates</label>
+          <label>Depth <select id="anodes">
+            <option value="100">Quick (100)</option>
+            <option value="400" selected>Normal (400)</option>
+            <option value="800">Deep (800)</option>
+            <option value="2000">Max (2000)</option>
+          </select></label>
+          <label>Promote to <select id="a-promo"><option value="q">Queen</option><option value="r">Rook</option><option value="b">Bishop</option><option value="n">Knight</option></select></label>
+        </div>
+        <div class="status" id="a-status" aria-live="polite"></div>
+        <div class="movelist" id="a-moves"></div>
+        <div class="setup hidden" id="a-setup-panel">
+          <p class="muted" style="margin-top:0">Drag pieces from the trays onto the board; drag a piece off the board to remove it.</p>
+          <div class="row">
+            <button id="a-start">Start position</button>
+            <label>Side to move <select id="a-turn"><option value="w">White</option><option value="b">Black</option></select></label>
+          </div>
+          <div class="row" style="margin-bottom:0">
+            <span>Castling
+              <label><input type="checkbox" id="a-K"> K</label>
+              <label><input type="checkbox" id="a-Q"> Q</label>
+              <label><input type="checkbox" id="a-k"> k</label>
+              <label><input type="checkbox" id="a-q"> q</label>
+            </span>
+            <label>En passant <input type="text" id="a-ep" value="-" maxlength="2" size="3" aria-label="En-passant target square, or a hyphen"></label>
+          </div>
+        </div>
+        <div class="row" style="margin-top:12px">
+          <input type="text" class="fen" id="a-fen" spellcheck="false" aria-label="FEN of the current position">
+          <button id="a-load-fen">Load FEN</button>
+          <button id="a-copy-fen">Copy</button>
+        </div>
+        <details>
+          <summary>Import PGN</summary>
+          <textarea id="a-pgn" placeholder="1. e4 e5 2. Nf3 Nc6 ..."></textarea>
+          <button id="a-load-pgn" style="margin-top:8px">Load PGN</button>
+        </details>
       </div>
-      <div class="row">
-        <label>Side to move <select id="a-turn" disabled><option value="w">White</option><option value="b">Black</option></select></label>
-        <span>Castling
-          <label><input type="checkbox" id="a-K" disabled> K</label>
-          <label><input type="checkbox" id="a-Q" disabled> Q</label>
-          <label><input type="checkbox" id="a-k" disabled> k</label>
-          <label><input type="checkbox" id="a-q" disabled> q</label>
-        </span>
-        <label>En passant <input type="text" id="a-ep" value="-" maxlength="2" size="3" disabled aria-label="En-passant target square, or a hyphen"></label>
-      </div>
-      <div class="row">
-        <input type="text" class="fen" id="a-fen" spellcheck="false" aria-label="FEN of the current position">
-        <button id="a-load-fen">Load FEN</button>
-        <button id="a-copy-fen">Copy</button>
-      </div>
-      <details>
-        <summary>Import PGN</summary>
-        <textarea id="a-pgn" placeholder="1. e4 e5 2. Nf3 Nc6 ..."></textarea>
-        <button id="a-load-pgn" style="margin-top:8px">Load PGN</button>
-      </details>
-      <div class="movelist" id="a-moves"></div>
     </div>
   </section>
 
@@ -211,59 +300,125 @@ document.querySelectorAll('.tab').forEach(t => t.onclick = () => {
   for (const id of ['play', 'analysis', 'review']) $id(id).classList.toggle('hidden', id !== t.dataset.tab);
   ({ play: board, analysis: aboard, review: rboard })[t.dataset.tab].resize();
   if (t.dataset.tab === 'analysis') drawArrow();
+  if (t.dataset.tab === 'play') drawPlayArrows();
 });
 
 // ---- play ----
+// Two modes: against the engine, or 1v1 where two people share this board and take turns.
 const game = new Chess();
-let human = 'w', busy = false, coachRequest = 0;
+let human = 'w', busy = false, coachRequest = 0, playMode = 'engine', pResult = null, pHover = null;
 const board = Chessboard('board', {
   draggable: true, position: 'start', pieceTheme: PIECES,
-  onDragStart: (src, piece) => !(busy || game.game_over() || game.turn() !== human || piece[0] !== human),
-  onDrop: (from, to) => {
-    if (!game.move({ from, to, promotion: 'q' })) return 'snapback';
-    refresh(); setTimeout(engineMove, 30);
-  },
+  onDragStart: (src, piece) => !(busy || game.game_over() || piece[0] !== game.turn()
+    || (playMode === 'engine' && game.turn() !== human)),
+  onDrop: (from, to) => (playUserMove({ from, to, promotion: 'q' }, false) ? undefined : 'snapback'),
   onSnapEnd: () => board.position(game.fen()),
 });
 
+const colorName = (color) => (color === 'w' ? 'White' : 'Black');
+function sideName(color) {
+  if (playMode === 'engine') return color === human ? 'You' : 'Engine';
+  const me = $id('p-me').value.trim() || 'You', friend = $id('p-friend').value.trim() || 'Friend';
+  return color === human ? me : friend;
+}
+// Whose moves get recommendations: "me" (the colour you picked), "both" (1v1 only) or "off".
+function coachWanted() {
+  const coach = $id('p-coach').value;
+  if (busy || game.game_over() || coach === 'off') return false;
+  if (playMode === 'engine' || coach === 'me') return game.turn() === human;
+  return true;
+}
+
+function playUserMove(spec, moveBoard = true) {
+  const move = game.move(spec);
+  if (!move) return null;
+  if (moveBoard) board.position(game.fen());
+  refresh();
+  if (playMode === 'engine') setTimeout(engineMove, 30);
+  return move;
+}
+
+function statusText() {
+  const turn = game.turn(), other = turn === 'w' ? 'b' : 'w';
+  if (game.in_checkmate()) return `Checkmate — ${sideName(other)} (${colorName(other)}) wins`;
+  if (game.in_draw() || game.in_stalemate() || game.in_threefold_repetition()) return 'Draw';
+  if (busy) return 'Engine thinking…';
+  return `${sideName(turn)} to move (${colorName(turn)})` + (game.in_check() ? ' — check' : '');
+}
+
 function refresh() {
-  let s;
-  if (game.in_checkmate()) s = 'Checkmate — ' + (game.turn() === 'w' ? 'Black' : 'White') + ' wins';
-  else if (game.in_draw() || game.in_stalemate() || game.in_threefold_repetition()) s = 'Draw';
-  else s = (busy ? 'Engine thinking…' : (game.turn() === human ? 'Your move' : 'Engine to move')) + (game.in_check() ? ' (check)' : '');
-  $id('status').textContent = s;
+  const turn = game.turn();
+  $id('status').textContent = statusText();
   $id('moves').textContent = game.pgn({ max_width: 40, newline_char: '\n' });
-  if (game.game_over()) {
-    coachRequest++;
-    $id('coach').innerHTML = '<strong>Live coach</strong><span class="muted">Game finished.</span>';
-  } else if (busy || game.turn() !== human) {
-    coachRequest++;
-    $id('coach').innerHTML = '<strong>Live coach</strong><span class="muted">Waiting for your turn…</span>';
-  } else {
-    requestCoach();
-  }
+  pResult = null; pHover = null;
+  drawPlayArrows();
+  coachRequest++;
+  if (coachWanted()) return requestCoach();
+  let note;
+  if (game.game_over()) note = 'Game finished.';
+  else if ($id('p-coach').value === 'off') note = 'Recommendations are off.';
+  else if (busy) note = 'Waiting for the engine…';
+  else note = `No recommendations for ${sideName(turn)}’s moves. Waiting for ${sideName(human)}…`;
+  coachMessage(note);
+}
+
+function coachMessage(text, warn = false) {
+  $id('coach').textContent = 'Recommendations';
+  $id('p-lines').innerHTML = `<div class="line-empty ${warn ? 'warn' : 'muted'}">${esc(text)}</div>`;
 }
 
 async function requestCoach() {
   const requestId = ++coachRequest;
-  const position = game.fen();
-  $id('coach').innerHTML = '<strong>Live coach</strong><span class="muted">Analysing this position…</span>';
+  const position = game.fen(), turn = game.turn();
+  $id('p-dot').classList.add('busy');
+  coachMessage(`Your model is thinking for ${sideName(turn)}…`);
   try {
     const moves = game.history({ verbose: true }).map(m => m.from + m.to + (m.promotion || ''));
+    const nodes = playMode === 'engine' ? Math.min(400, +$id('nodes').value) : 400;
     const r = await fetch('/api/analyse', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ moves, nodes: Math.min(400, +$id('nodes').value) }) });
+      body: JSON.stringify({ moves, nodes, multipv: 3 }) });
     const d = await r.json();
     if (!r.ok) throw new Error(d.error);
     if (requestId !== coachRequest || position !== game.fen()) return;
-    const sideEval = d.cp > 0 ? '+' : '';
-    $id('coach').innerHTML = `<strong>Suggested move: ${esc(d.san)} · White eval ${sideEval}${(d.cp / 100).toFixed(2)}</strong><span class="muted">Line: ${esc(d.pv || d.san)} · ${d.nodes} nodes</span>`;
+    pResult = { fen: position, lines: d.lines?.length ? d.lines
+      : [{ san: d.san, move: d.move, from_square: d.from_square, to_square: d.to_square, cp: d.cp, pv: d.pv, visits: d.nodes }] };
+    $id('coach').textContent = `Recommendations for ${sideName(turn)} (${colorName(turn)})`;
+    $id('p-lines').innerHTML = pResult.lines.map((line, i) => `
+      <button class="line-row" data-line="${i}" style="--line-color:${LINE_COLORS[i]}" title="Play ${esc(line.san)}">
+        <span class="line-eval ${fmtEval(line.cp)[0] === '-' ? 'neg' : ''}">${fmtEval(line.cp)}</span>
+        <span class="line-sq">${line.from_square} → ${line.to_square}</span>
+        <span class="line-pv">${esc(line.pv)}</span>
+        <span class="line-n">${line.visits} visits</span>
+      </button>`).join('');
+    drawPlayArrows();
   } catch (e) {
-    if (requestId === coachRequest) $id('coach').innerHTML = `<strong>Live coach</strong><span class="muted">${esc(e.message)}</span>`;
+    if (requestId === coachRequest) coachMessage(e.message, true);
+  } finally {
+    if (requestId === coachRequest) $id('p-dot').classList.remove('busy');
   }
 }
 
+function drawPlayArrows() {
+  const svg = $id('parrow'), squares = $id('board').querySelector('.board-b72b1');
+  if (!squares) return;
+  const wrap = $id('pwrap').getBoundingClientRect(), r = squares.getBoundingClientRect();
+  Object.assign(svg.style, { left: `${r.left - wrap.left}px`, top: `${r.top - wrap.top}px`,
+    width: `${r.width}px`, height: `${r.height}px` });
+  svg.setAttribute('viewBox', '0 0 8 8');
+  $id('board').querySelectorAll('.square-55d63.hl').forEach(el => el.classList.remove('hl'));
+  const last = game.history({ verbose: true }).pop();
+  if (last) for (const sq of [last.from, last.to]) $id('board').querySelector(`[data-square="${sq}"]`)?.classList.add('hl');
+  const lines = pResult && pResult.fen === game.fen() ? pResult.lines : [];
+  svg.innerHTML = lines
+    .map((line, i) => ({ from: line.from_square, to: line.to_square, color: LINE_COLORS[i], width: LINE_WIDTHS[i], rank: i }))
+    .filter(arrow => pHover === null || pHover === arrow.rank)
+    .reverse()
+    .map(arrow => arrowSvg(arrow, board.orientation()))
+    .join('');
+}
+
 async function engineMove() {
-  if (game.game_over() || game.turn() === human) return;
+  if (playMode !== 'engine' || game.game_over() || game.turn() === human) return;
   busy = true; refresh();
   try {
     const moves = game.history({ verbose: true }).map(m => m.from + m.to + (m.promotion || ''));
@@ -278,20 +433,46 @@ async function engineMove() {
   busy = false; refresh();
 }
 
-$id('new').onclick = () => {
+function newGame() {
   human = $id('color').value; game.reset();
   board.orientation(human === 'w' ? 'white' : 'black'); board.position('start');
   $id('eval').textContent = ''; refresh(); engineMove();
+}
+
+$id('new').onclick = newGame;
+$id('p-mode').onclick = (e) => {
+  const mode = e.target.dataset.mode;
+  if (!mode || mode === playMode) return;
+  playMode = mode;
+  $id('p-mode').querySelectorAll('button').forEach(b => b.classList.toggle('on', b === e.target));
+  $id('p-engine-opts').classList.toggle('hidden', mode !== 'engine');
+  $id('p-friend-opts').classList.toggle('hidden', mode === 'engine');
+  $id('p-coach-both').disabled = mode === 'engine';
+  if (mode === 'engine' && $id('p-coach').value === 'both') $id('p-coach').value = 'me';
+  newGame();
 };
 $id('undo').onclick = () => {
   if (busy) return;
-  game.undo(); if (game.turn() !== human) game.undo();
+  game.undo();
+  if (playMode === 'engine' && game.turn() !== human) game.undo();
   board.position(game.fen()); refresh();
 };
-$id('flip').onclick = () => board.flip();
-$id('nodes').onchange = () => {
-  if (!busy && !game.game_over() && game.turn() === human) requestCoach();
+$id('flip').onclick = () => { board.flip(); drawPlayArrows(); };
+$id('nodes').onchange = () => { if (coachWanted()) requestCoach(); };
+$id('p-coach').onchange = refresh;
+for (const id of ['p-me', 'p-friend']) $id(id).oninput = () => { $id('status').textContent = statusText(); };
+$id('p-lines').onclick = (e) => {
+  const row = e.target.closest('.line-row');
+  if (!row || !pResult || busy) return;
+  const uci = pResult.lines[+row.dataset.line].move;
+  playUserMove({ from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci[4] });
 };
+$id('p-lines').onmouseover = (e) => {
+  const row = e.target.closest('.line-row');
+  const hover = row ? +row.dataset.line : null;
+  if (hover !== pHover) { pHover = hover; drawPlayArrows(); }
+};
+$id('p-lines').onmouseleave = () => { if (pHover !== null) { pHover = null; drawPlayArrows(); } };
 
 // ---- review ----
 const rboard = Chessboard('rboard', { position: 'start', pieceTheme: PIECES });
@@ -335,13 +516,20 @@ const esc = (s) => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;
 // ---- analysis board ----
 // A line is a base FEN plus the moves played from it; the cursor says how many are on the board.
 const START_FEN = new Chess().fen();
+const LINE_COLORS = ['#f0a830', '#c2407e', '#e58bb8'];      // engine lines 1-3 and their arrows
+const LINE_WIDTHS = [0.2, 0.15, 0.12];
+const GAME_ARROW = { color: '#3a9fd8', width: 0.15 };      // next move of a loaded game ("Moves")
 let abase = START_FEN, aline = [], acursor = 0, agame = new Chess();
-let aRequest = 0, aTimer = 0, aArrow = null;
-const editing = () => $id('a-edit').checked;
+let aRequest = 0, aTimer = 0, aResult = null, aHover = null, aEditing = false, arrowMode = 'engine';
+const editing = () => aEditing;
 const placement = () => agame.fen().split(' ')[0];
 const kingProblem = () => {
   const p = placement(), white = (p.match(/K/g) || []).length, black = (p.match(/k/g) || []).length;
   return white === 1 && black === 1 ? '' : 'Each side needs exactly one king.';
+};
+const fmtEval = (cp) => {
+  const pawns = Math.max(-99.9, Math.min(99.9, cp / 100)), text = Math.abs(pawns).toFixed(1);
+  return text === '0.0' ? text : (pawns > 0 ? '+' : '-') + text;
 };
 
 const aboard = Chessboard('aboard', {
@@ -351,11 +539,7 @@ const aboard = Chessboard('aboard', {
   onDrop: (from, to, piece, newPos) => {
     if (editing()) { editPosition(Chessboard.objToFen(newPos), false); return; }
     if (to === 'offboard') return 'snapback';
-    const move = agame.move({ from, to, promotion: $id('a-promo').value });
-    if (!move) return 'snapback';
-    aline = aline.slice(0, acursor).concat([{ from: move.from, to: move.to, promotion: move.promotion }]);
-    acursor++;
-    positionChanged(false);
+    if (!playMove({ from, to, promotion: $id('a-promo').value }, false)) return 'snapback';
   },
   onSnapEnd: () => { if (!editing()) aboard.position(agame.fen()); },   // castling, en passant, promotion
 });
@@ -365,6 +549,16 @@ function setLine(base, line, cursor, moveBoard = true) {
   agame = new Chess(abase);
   for (const m of aline.slice(0, acursor)) agame.move(m);
   positionChanged(moveBoard);
+}
+
+// Play a move at the cursor; anything after the cursor is replaced by the new move.
+function playMove(spec, moveBoard = true) {
+  const move = agame.move(spec);
+  if (!move) return null;
+  aline = aline.slice(0, acursor).concat([{ from: move.from, to: move.to, promotion: move.promotion }]);
+  acursor++;
+  positionChanged(moveBoard);
+  return move;
 }
 
 function composeFen(boardFen) {
@@ -390,7 +584,8 @@ function positionChanged(moveBoard) {
   $id('a-ep').value = ep;
   $id('a-fen').value = agame.fen();
   renderMoves();
-  aArrow = null; drawArrow();
+  aResult = null; aHover = null;
+  drawArrow();
   const problem = kingProblem();
   let status = problem || (turn === 'w' ? 'White' : 'Black') + ' to move';
   if (!problem && agame.in_checkmate()) status = 'Checkmate';
@@ -399,8 +594,9 @@ function positionChanged(moveBoard) {
   $id('a-status').textContent = status;
   $id('a-status').classList.toggle('warn', !!problem);
   aRequest++; clearTimeout(aTimer);
+  $id('a-dot').classList.remove('busy');
   if ($id('a-live').checked) aTimer = setTimeout(analyzeNow, 250);
-  else showResult('<strong>Recommendation</strong><span class="muted">Press “My turn — analyze now”.</span>');
+  else linesMessage('Press “My turn — analyze now” for your model’s top lines.');
 }
 
 function renderMoves() {
@@ -415,79 +611,159 @@ function renderMoves() {
     if (turn === 'b') num++;
     turn = turn === 'w' ? 'b' : 'w';
   });
-  $id('a-moves').innerHTML = html;
+  $id('a-moves').innerHTML = html || '<span class="muted">Make a move on the board or import a PGN.</span>';
+  $id('a-moves').querySelector('.cur')?.scrollIntoView({ block: 'nearest' });
 }
 
-const showResult = (html) => { $id('a-result').innerHTML = html; };
+function linesMessage(text, warn = false) {
+  $id('a-lines').innerHTML = `<div class="line-empty ${warn ? 'warn' : 'muted'}">${esc(text)}</div>`;
+  showEval(null);
+}
+
+function renderLines() {
+  $id('a-lines').innerHTML = aResult.lines.map((line, i) => `
+    <button class="line-row" data-line="${i}" style="--line-color:${LINE_COLORS[i]}"
+            title="Play ${esc(line.san)}" aria-label="Line ${i + 1}: ${esc(line.san)}, ${line.from_square} to ${line.to_square}, eval ${fmtEval(line.cp)}">
+      <span class="line-eval ${fmtEval(line.cp)[0] === '-' ? 'neg' : ''}">${fmtEval(line.cp)}</span>
+      <span class="line-sq">${line.from_square} → ${line.to_square}</span>
+      <span class="line-pv">${esc(line.pv)}</span>
+      <span class="line-n">${line.visits} visits</span>
+    </button>`).join('');
+  showEval(aResult.cp);
+}
+
+function showEval(cp) {
+  const bar = $id('a-evalbar'), text = $id('a-evaltext');
+  $id('a-eval').textContent = cp === null ? '' : fmtEval(cp);
+  const white = 1 / (1 + Math.exp(-0.00368208 * (cp ?? 0)));     // Lichess's win-chance curve
+  $id('a-evalfill').style.height = `${white * 100}%`;
+  text.textContent = cp === null ? '' : fmtEval(cp).replace(/^[+-]/, '');
+  // The number sits at the end of the bar belonging to the side that is better.
+  const whiteAtBottom = aboard.orientation() === 'white';
+  text.classList.toggle('top', (cp ?? 0) >= 0 ? !whiteAtBottom : whiteAtBottom);
+  bar.classList.toggle('flipped', !whiteAtBottom);
+}
 
 async function analyzeNow() {
   clearTimeout(aTimer);
   const requestId = ++aRequest;
   const problem = kingProblem();
-  if (problem) return showResult(`<strong>Recommendation</strong><span class="warn">${problem}</span>`);
-  if (agame.game_over()) return showResult('<strong>Recommendation</strong><span class="muted">The game is over in this position.</span>');
-  showResult('<strong>Recommendation</strong><span class="muted">Your model is thinking…</span>');
+  if (problem) return linesMessage(problem, true);
+  if (agame.game_over()) return linesMessage('The game is over in this position.');
+  const fen = agame.fen();
+  $id('a-dot').classList.add('busy');
+  if (!aResult) linesMessage('Your model is thinking…');
   try {
     const moves = aline.slice(0, acursor).map(m => m.from + m.to + (m.promotion || ''));
     const r = await fetch('/api/analyse', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ fen: abase, moves, nodes: +$id('anodes').value }) });
+      body: JSON.stringify({ fen: abase, moves, nodes: +$id('anodes').value, multipv: 3 }) });
     const d = await r.json();
     if (!r.ok) throw new Error(d.error);
     if (requestId !== aRequest) return;
-    aArrow = { from: d.from_square, to: d.to_square };
+    const lines = d.lines?.length ? d.lines
+      : [{ san: d.san, move: d.move, from_square: d.from_square, to_square: d.to_square, cp: d.cp, pv: d.pv, visits: d.nodes }];
+    aResult = { fen, lines, cp: d.cp };
+    $id('a-depth').textContent = `${d.nodes} nodes`;
+    renderLines();
     drawArrow();
-    showResult(`<strong class="rec">${esc(d.san)}<span class="squares">${d.from_square} → ${d.to_square}</span></strong>
-      <span class="muted">White eval ${fmt(d.cp)} · line: ${esc(d.pv || d.san)} · ${d.nodes} nodes</span>`);
   } catch (e) {
-    if (requestId === aRequest) showResult(`<strong>Recommendation</strong><span class="warn">${esc(e.message)}</span>`);
+    if (requestId === aRequest) linesMessage(e.message, true);
+  } finally {
+    if (requestId === aRequest) $id('a-dot').classList.remove('busy');
   }
 }
 
 function drawArrow() {
   const svg = $id('aarrow'), squares = $id('aboard').querySelector('.board-b72b1');
-  if (!aArrow || !squares) { svg.innerHTML = ''; return; }
+  if (!squares) return;
   const wrap = $id('awrap').getBoundingClientRect(), r = squares.getBoundingClientRect();
   Object.assign(svg.style, { left: `${r.left - wrap.left}px`, top: `${r.top - wrap.top}px`,
     width: `${r.width}px`, height: `${r.height}px` });
   svg.setAttribute('viewBox', '0 0 8 8');
-  const white = aboard.orientation() === 'white';
+  if (r.height) Object.assign($id('a-evalbar').style, { height: `${r.height}px`, marginTop: `${r.top - wrap.top}px` });
+
+  // Last move played: tint its two squares (chessboard.js redraws squares on resize, so reapply each time).
+  $id('aboard').querySelectorAll('.square-55d63.hl').forEach(el => el.classList.remove('hl'));
+  const last = aline[acursor - 1];
+  if (last) for (const sq of [last.from, last.to]) $id('aboard').querySelector(`[data-square="${sq}"]`)?.classList.add('hl');
+
+  const arrows = [];
+  const next = aline[acursor];
+  if (arrowMode !== 'engine' && next) arrows.push({ from: next.from, to: next.to, ...GAME_ARROW });
+  if (arrowMode !== 'moves' && aResult && aResult.fen === agame.fen()) {
+    aResult.lines.forEach((line, i) => {
+      if (aHover === null || aHover === i)
+        arrows.push({ from: line.from_square, to: line.to_square, color: LINE_COLORS[i], width: LINE_WIDTHS[i], rank: i });
+    });
+  }
+  // Weaker lines first so the best arrow is drawn on top.
+  arrows.sort((a, b) => (b.rank ?? -1) - (a.rank ?? -1));
+  svg.innerHTML = arrows.map(arrow => arrowSvg(arrow, aboard.orientation())).join('');
+  showEval(aResult && aResult.fen === agame.fen() ? aResult.cp : null);
+}
+
+function arrowSvg({ from, to, color, width }, orientation) {
+  const white = orientation === 'white';
   const center = (sq) => {
     const file = sq.charCodeAt(0) - 97, rank = +sq[1];
     return { x: (white ? file : 7 - file) + 0.5, y: (white ? 8 - rank : rank - 1) + 0.5 };
   };
-  const a = center(aArrow.from), b = center(aArrow.to);
-  const dx = Math.cos(Math.atan2(b.y - a.y, b.x - a.x)), dy = Math.sin(Math.atan2(b.y - a.y, b.x - a.x));
-  const base = { x: b.x - dx * 0.42, y: b.y - dy * 0.42 };
-  const head = [b, { x: base.x - dy * 0.28, y: base.y + dx * 0.28 }, { x: base.x + dy * 0.28, y: base.y - dx * 0.28 }];
-  const tag = (p, name) => `<g class="tag"><rect x="${p.x - 0.47}" y="${p.y - 0.47}" width="0.36" height="0.26" rx="0.05"/>
-    <text x="${p.x - 0.43}" y="${p.y - 0.27}">${name}</text></g>`;
-  svg.innerHTML = `<rect class="from" x="${a.x - 0.5}" y="${a.y - 0.5}" width="1" height="1"/>
-    <rect class="to" x="${b.x - 0.5}" y="${b.y - 0.5}" width="1" height="1"/>
-    <line class="shaft" x1="${a.x}" y1="${a.y}" x2="${base.x}" y2="${base.y}"/>
-    <polygon class="head" points="${head.map(p => `${p.x},${p.y}`).join(' ')}"/>
-    ${tag(a, aArrow.from)}${tag(b, aArrow.to)}`;
+  const a = center(from), b = center(to);
+  const angle = Math.atan2(b.y - a.y, b.x - a.x), dx = Math.cos(angle), dy = Math.sin(angle);
+  const length = width * 2.3, half = width * 1.55;
+  const base = { x: b.x - dx * length, y: b.y - dy * length };
+  const head = [b, { x: base.x - dy * half, y: base.y + dx * half }, { x: base.x + dy * half, y: base.y - dx * half }];
+  return `<g style="opacity:.85"><line x1="${a.x}" y1="${a.y}" x2="${base.x + dx * 0.02}" y2="${base.y + dy * 0.02}"
+      style="stroke:${color};stroke-width:${width};stroke-linecap:round"/>
+    <polygon points="${head.map(p => `${p.x},${p.y}`).join(' ')}" style="fill:${color}"/></g>`;
+}
+
+function setEditing(on) {
+  aEditing = on;
+  $id('a-setup').classList.toggle('on', on);
+  $id('a-setup').setAttribute('aria-pressed', String(on));
+  $id('a-setup-panel').classList.toggle('hidden', !on);
+  $id('awrap').classList.toggle('hide-spares', !on);
+  aboard.resize(); drawArrow();
 }
 
 $id('analyze-now').onclick = analyzeNow;
 $id('a-live').onchange = () => { if ($id('a-live').checked) analyzeNow(); };
 $id('anodes').onchange = () => { if ($id('a-live').checked) analyzeNow(); };
-$id('a-edit').onchange = () => {
-  $id('awrap').classList.toggle('hide-spares', !editing());
-  for (const id of ['a-turn', 'a-K', 'a-Q', 'a-k', 'a-q', 'a-ep']) $id(id).disabled = !editing();
-  aboard.resize(); drawArrow();
+$id('a-arrows').onclick = (e) => {
+  const mode = e.target.dataset.mode;
+  if (!mode) return;
+  arrowMode = mode;
+  $id('a-arrows').querySelectorAll('button').forEach(b => b.classList.toggle('on', b === e.target));
+  drawArrow();
 };
+$id('a-lines').onclick = (e) => {
+  const row = e.target.closest('.line-row');
+  if (!row || !aResult) return;
+  const uci = aResult.lines[+row.dataset.line].move;
+  playMove({ from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci[4] });
+};
+$id('a-lines').onmouseover = (e) => {
+  const row = e.target.closest('.line-row');
+  const hover = row ? +row.dataset.line : null;
+  if (hover !== aHover) { aHover = hover; drawArrow(); }
+};
+$id('a-lines').onmouseleave = () => { if (aHover !== null) { aHover = null; drawArrow(); } };
+$id('a-setup').onclick = () => setEditing(!aEditing);
 for (const id of ['a-turn', 'a-K', 'a-Q', 'a-k', 'a-q', 'a-ep']) $id(id).onchange = () => editPosition(placement());
 $id('a-start').onclick = () => setLine(START_FEN, [], 0);
-$id('a-clear').onclick = () => {
-  if (!editing()) { $id('a-edit').checked = true; $id('a-edit').onchange(); }
-  setLine('8/8/8/8/8/8/8/8 w - - 0 1', [], 0);
-};
+$id('a-clear').onclick = () => { setEditing(true); setLine('8/8/8/8/8/8/8/8 w - - 0 1', [], 0); };
 $id('a-first').onclick = () => setLine(abase, aline, 0);
 $id('a-prev').onclick = () => setLine(abase, aline, Math.max(0, acursor - 1));
 $id('a-next').onclick = () => setLine(abase, aline, Math.min(aline.length, acursor + 1));
 $id('a-last').onclick = () => setLine(abase, aline, aline.length);
 $id('a-moves').onclick = (e) => { if (e.target.dataset.ply) setLine(abase, aline, +e.target.dataset.ply); };
 $id('a-flip').onclick = () => { aboard.flip(); drawArrow(); };
+document.addEventListener('keydown', (e) => {
+  if ($id('analysis').classList.contains('hidden') || e.target.closest('input, textarea, select')) return;
+  const key = { ArrowLeft: 'a-prev', ArrowRight: 'a-next', Home: 'a-first', End: 'a-last' }[e.key];
+  if (key) { e.preventDefault(); $id(key).click(); }
+});
 $id('a-load-fen').onclick = () => {
   let fen = $id('a-fen').value.trim().replace(/\s+/g, ' ');
   if (fen.split(' ').length === 4) fen += ' 0 1';
@@ -506,8 +782,10 @@ $id('a-load-pgn').onclick = () => {
 };
 $id('a-fen').value = START_FEN;
 $id('a-status').textContent = 'White to move';
+renderMoves();
+linesMessage('Press “My turn — analyze now” for your model’s top lines.');
 
-window.addEventListener('resize', () => { board.resize(); rboard.resize(); aboard.resize(); drawArrow(); });
+window.addEventListener('resize', () => { board.resize(); rboard.resize(); aboard.resize(); drawArrow(); drawPlayArrows(); });
 refresh();
 
 // ---- screen board selection ----

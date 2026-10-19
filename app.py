@@ -81,14 +81,21 @@ def create_app(engine) -> Flask:
             return jsonify(error=f"invalid move history: {e}"), 400
         if board.is_game_over():
             return jsonify(error="game is over"), 400
+        multipv = max(1, min(int(body.get("multipv", 1)), 5))
         with lock:
-            info = engine.analyse(board, nodes=nodes_arg(body, 200))
+            info = engine.analyse(board, nodes=nodes_arg(body, 200), multipv=multipv)
         move = info["move"]
+        lines = [{"move": line["move"].uci(), "san": board.san(line["move"]),
+                  "from_square": chess.square_name(line["move"].from_square),
+                  "to_square": chess.square_name(line["move"].to_square),
+                  "cp": white_cp(line["value"], board.turn), "visits": line["visits"],
+                  "pv": board.variation_san(line["pv"][:8]), "pv_uci": [m.uci() for m in line["pv"][:8]]}
+                 for line in info["lines"]]
         return jsonify(move=move.uci(), san=board.san(move),
                        from_square=chess.square_name(move.from_square),
                        to_square=chess.square_name(move.to_square), fen=board.fen(),
                        cp=white_cp(info["value"], board.turn),
-                       pv=board.variation_san(info["pv"][:8]), nodes=info["nodes"])
+                       pv=board.variation_san(info["pv"][:8]), nodes=info["nodes"], lines=lines)
 
     @app.post("/api/screen-analyse")
     def api_screen_analyse():
