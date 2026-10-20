@@ -10,7 +10,12 @@ import numpy as np
 from PIL import Image, UnidentifiedImageError
 
 REFERENCE_BOARD = Path(__file__).parent / "vision_assets" / "reference_board.png"
-REFERENCE_BOARDS = (REFERENCE_BOARD, Path(__file__).parent / "vision_assets" / "fantasy_reference.png")
+REFERENCE_BOARDS = (
+    REFERENCE_BOARD,
+    Path(__file__).parent / "vision_assets" / "fantasy_reference.png",
+    Path(__file__).parent / "vision_assets" / "fantasy_reference_live.png",
+    Path(__file__).parent / "vision_assets" / "cipherchess_reference.png",
+)
 NORMALIZED_SIZE = 256
 SQUARE_SIZE = NORMALIZED_SIZE // 8
 EMPTY_THRESHOLD = 0.035
@@ -31,17 +36,31 @@ REFERENCE_TEMPLATES = {
     "K": [(7, 4)],
     "P": [(6, file_index) for file_index in range(8)],
 }
-REFERENCE_EMPTY = {
-    REFERENCE_BOARD: [(row, column) for row in range(2, 6) for column in range(8)],
-    REFERENCE_BOARDS[1]: (
-        [(1, 3)] + [(2, column) for column in range(8)]
-        + [(3, column) for column in range(8) if column != 3]
-        + [(4, column) for column in range(8)]
-        + [(5, column) for column in range(8) if column != 3] + [(6, 3)]
-    ),
-}
 REFERENCE_PIECES = {
-    REFERENCE_BOARDS[1]: {"p": [(3, 3)], "P": [(5, 3)]},
+    reference: {piece: list(locations) for piece, locations in REFERENCE_TEMPLATES.items()}
+    for reference in REFERENCE_BOARDS[:2]
+}
+REFERENCE_PIECES[REFERENCE_BOARDS[1]]["p"].remove((1, 3))
+REFERENCE_PIECES[REFERENCE_BOARDS[1]]["p"].append((3, 3))
+REFERENCE_PIECES[REFERENCE_BOARDS[1]]["P"].remove((6, 3))
+REFERENCE_PIECES[REFERENCE_BOARDS[1]]["P"].append((5, 3))
+REFERENCE_PIECES[REFERENCE_BOARDS[2]] = {
+    piece: list(locations) for piece, locations in REFERENCE_PIECES[REFERENCE_BOARDS[1]].items()
+}
+REFERENCE_PIECES[REFERENCE_BOARDS[3]] = {
+    "r": [(0, 0), (0, 5)], "n": [(1, 7), (2, 0)], "b": [(1, 3), (5, 4)],
+    "q": [(0, 4)], "k": [(0, 6)], "p": [(1, 1), (1, 2), (2, 3), (2, 6), (3, 4), (3, 5), (3, 7)],
+    "R": [(7, 1), (7, 5)], "N": [(5, 2), (6, 3)], "B": [(4, 7), (6, 4)],
+    "Q": [(7, 3)], "K": [(7, 6)], "P": [(3, 3), (4, 1), (4, 2), (4, 4), (5, 5), (6, 6), (6, 7)],
+}
+REFERENCE_EMPTY = {
+    reference: [
+        (row, column)
+        for row in range(8)
+        for column in range(8)
+        if (row, column) not in {location for locations in pieces.values() for location in locations}
+    ]
+    for reference, pieces in REFERENCE_PIECES.items()
 }
 
 
@@ -70,10 +89,7 @@ def _templates() -> dict[str, tuple[np.ndarray, ...]]:
             raise RuntimeError(f"Piece reference image is missing: {reference}")
         with Image.open(reference) as source:
             image = np.asarray(source.convert("RGB").resize((NORMALIZED_SIZE, NORMALIZED_SIZE)), dtype=np.float32)
-        piece_locations = {piece: list(locations) for piece, locations in REFERENCE_TEMPLATES.items()}
-        for piece, locations in REFERENCE_PIECES.get(reference, {}).items():
-            piece_locations[piece].extend(locations)
-        for piece, locations in piece_locations.items():
+        for piece, locations in REFERENCE_PIECES[reference].items():
             for row, column in locations:
                 top, left = row * SQUARE_SIZE, column * SQUARE_SIZE
                 tile, _ = _tile_features(image[top:top + SQUARE_SIZE, left:left + SQUARE_SIZE])
@@ -151,8 +167,21 @@ def build_board(
     for square, piece in pieces.items():
         board.set_piece_at(square, piece)
     board.turn = turn == "w"
+    available_castling = ""
+    for symbol, king_square, rook_square in (
+        ("K", chess.E1, chess.H1), ("Q", chess.E1, chess.A1),
+        ("k", chess.E8, chess.H8), ("q", chess.E8, chess.A8),
+    ):
+        king = board.piece_at(king_square)
+        rook = board.piece_at(rook_square)
+        color = chess.WHITE if symbol.isupper() else chess.BLACK
+        if king == chess.Piece(chess.KING, color) and rook == chess.Piece(chess.ROOK, color):
+            available_castling += symbol
     try:
-        board.set_castling_fen(castling or "-")
+        requested = castling or "-"
+        if requested != "-":
+            requested = "".join(symbol for symbol in "KQkq" if symbol in requested and symbol in available_castling)
+        board.set_castling_fen(requested or "-")
     except ValueError as error:
         raise BoardRecognitionError("Castling rights must use KQkq letters or '-'.") from error
     if en_passant != "-":

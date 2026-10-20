@@ -26,6 +26,10 @@ def client(tmp_path_factory):
 def test_index(client):
     r = client.get("/")
     assert r.status_code == 200 and b"chessboard" in r.data
+    assert b'data-tab="screen-share"' in r.data
+    assert b'id="screen-replica"' in r.data
+    assert b"/api/screen-recognize" in r.data
+    assert b"syncScreenPositionToAnalysis" not in r.data
 
 
 def test_engine_move_is_legal(client):
@@ -130,17 +134,17 @@ def test_analysis_rejects_finished_fen(client):
     assert r.status_code == 400 and "over" in r.json["error"]
 
 
-def test_screen_analysis_recognizes_and_analyzes_reference_board(client):
+def test_screen_recognition_reconstructs_position_without_engine_suggestions(client, monkeypatch):
+    monkeypatch.setattr(search.Engine, "analyse", lambda *args, **kwargs: pytest.fail("screen recognition must not call the engine"))
     image = Path("vision_assets/reference_board.png").read_bytes()
-    r = client.post("/api/screen-analyse", data={
+    r = client.post("/api/screen-recognize", data={
         "board": (io.BytesIO(image), "board.png"),
-        "orientation": "white", "turn": "w", "castling": "KQkq", "nodes": "20",
+        "orientation": "white", "turn": "w", "castling": "KQkq",
     }, content_type="multipart/form-data")
     assert r.status_code == 200, r.json
     assert r.json["fen"] == chess.STARTING_FEN
-    board = chess.Board(r.json["fen"])
-    assert chess.Move.from_uci(r.json["move"]) in board.legal_moves
-    assert r.json["pv"] and r.json["confidence"] > 0.8
+    assert r.json["confidence"] > 0.8
+    assert "move" not in r.json and "lines" not in r.json and "candidates" not in r.json
 
 
 def test_illegal_and_finished_positions_rejected(client):

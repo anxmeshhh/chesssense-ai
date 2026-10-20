@@ -33,6 +33,10 @@
   .coach strong { display: block; margin-bottom: 4px; }
   .capture { margin-top: 16px; }
   .capture canvas { display: block; max-width: 100%; max-height: 440px; background: #111; border-radius: 6px; touch-action: none; cursor: crosshair; }
+  .screen-results { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; align-items: start; }
+  .screen-results > div > strong { display: block; margin: 0 0 8px; }
+  #screen-replica-wrap { width: min(100%, 360px); }
+  #screen-share { max-width: 1200px; margin: 0 auto; }
   #moves { font-family: ui-monospace, monospace; font-size: 13px; max-height: 260px; overflow-y: auto; white-space: pre-wrap; }
   table { width: 100%; border-collapse: collapse; font-size: 13px; }
   th, td { text-align: left; padding: 5px 6px; border-bottom: 1px solid var(--line); }
@@ -115,6 +119,7 @@
 <header>
   <h1>ChessSense AI</h1>
   <button class="tab active" data-tab="play">Play</button>
+  <button class="tab" data-tab="screen-share">Screen Share</button>
   <button class="tab" data-tab="analysis">Analysis</button>
   <button class="tab" data-tab="review">Review</button>
 </header>
@@ -122,28 +127,6 @@
   <section id="play" class="layout">
     <div>
       <div class="board-wrap" id="pwrap"><div id="board"></div><svg class="arrow" id="parrow" aria-hidden="true"></svg></div>
-      <div class="panel capture">
-        <strong>Screen board</strong>
-        <p class="muted">For practice and analysis boards where engine help is allowed. Share a screen or window, then drag around the chessboard to mark its area.</p>
-        <div class="row">
-          <button class="primary" id="share-screen">Share screen</button>
-          <button id="stop-screen" disabled>Stop sharing</button>
-        </div>
-        <div class="row">
-          <label>Board view <select id="screen-orientation"><option value="white">White at bottom</option><option value="black">Black at bottom</option></select></label>
-          <label>Side to move <select id="screen-turn"><option value="w">White</option><option value="b">Black</option></select></label>
-          <label>Castling rights <input id="screen-castling" value="KQkq" maxlength="4" size="5" aria-label="Castling rights, using KQkq or a hyphen"></label>
-          <label>En passant <input id="screen-en-passant" value="-" maxlength="2" size="3" aria-label="En-passant target square or hyphen"></label>
-        </div>
-        <div class="row">
-          <button class="primary" id="analyse-screen" disabled>Analyze board</button>
-          <button id="reset-screen-position" disabled>Reset position tracking</button>
-          <label><input type="checkbox" id="live-screen-analysis" checked> Analyze after board changes</label>
-        </div>
-        <canvas id="screen-preview" aria-label="Shared screen preview. Drag to select the chessboard area."></canvas>
-        <div class="muted" id="screen-status" aria-live="polite">Screen sharing is off.</div>
-        <div class="coach" id="screen-analysis" aria-live="polite"><strong>Screen analysis</strong><span class="muted">Share a board and select its full square area.</span></div>
-      </div>
     </div>
     <div class="panel studio-side">
       <div class="engine-bar">
@@ -187,6 +170,34 @@
       </div>
       <div class="lines" id="p-lines" aria-live="polite"></div>
       <div class="studio-body"><div id="moves"></div></div>
+    </div>
+  </section>
+
+  <section id="screen-share" class="hidden">
+    <div class="panel capture">
+      <strong>Screen board</strong>
+      <p class="muted">Screen sharing reconstructs the board for display only. It does not request engine recommendations or send the captured position to Analysis. Use Review for completed games.</p>
+      <div class="row">
+        <button class="primary" id="share-screen">Share screen</button>
+        <button id="stop-screen" disabled>Stop sharing</button>
+      </div>
+      <div class="row">
+        <label>Board view <select id="screen-orientation"><option value="white">White at bottom</option><option value="black">Black at bottom</option></select></label>
+        <label>Side to move <select id="screen-turn"><option value="w">White</option><option value="b">Black</option></select></label>
+        <label>Castling rights <input id="screen-castling" value="KQkq" maxlength="4" size="5" aria-label="Castling rights, using KQkq or a hyphen"></label>
+        <label>En passant <input id="screen-en-passant" value="-" maxlength="2" size="3" aria-label="En-passant target square or hyphen"></label>
+      </div>
+      <div class="row">
+        <button class="primary" id="analyse-screen" disabled>Recognize board</button>
+        <button id="reset-screen-position" disabled>Reset position tracking</button>
+        <label><input type="checkbox" id="live-screen-analysis" checked> Recognize after board changes</label>
+      </div>
+      <div class="screen-results">
+        <div><strong>Screen capture</strong><canvas id="screen-preview" aria-label="Shared screen preview. Drag to select the chessboard area."></canvas></div>
+        <div><strong>Recognized position · display only</strong><div class="board-wrap" id="screen-replica-wrap"><div id="screen-replica" aria-label="Reconstructed chess position"></div><svg class="arrow" id="screen-replica-arrow" aria-hidden="true"></svg></div></div>
+      </div>
+      <div class="muted" id="screen-status" aria-live="polite">Screen sharing is off.</div>
+      <div class="coach" id="screen-analysis" aria-live="polite"><strong>Screen recognition</strong><span class="muted">Share a board and select its full square area.</span></div>
     </div>
   </section>
 
@@ -297,10 +308,13 @@ const fmt = (cp) => (cp > 0 ? '+' : '') + (cp / 100).toFixed(2);
 // ---- tabs ----
 document.querySelectorAll('.tab').forEach(t => t.onclick = () => {
   document.querySelectorAll('.tab').forEach(x => x.classList.toggle('active', x === t));
-  for (const id of ['play', 'analysis', 'review']) $id(id).classList.toggle('hidden', id !== t.dataset.tab);
-  ({ play: board, analysis: aboard, review: rboard })[t.dataset.tab].resize();
+  for (const id of ['play', 'screen-share', 'analysis', 'review']) $id(id).classList.toggle('hidden', id !== t.dataset.tab);
+  const boards = { play: board, analysis: aboard, review: rboard };
+  if (boards[t.dataset.tab]) boards[t.dataset.tab].resize();
+  if (t.dataset.tab === 'screen-share') screenReplica.resize();
   if (t.dataset.tab === 'analysis') drawArrow();
   if (t.dataset.tab === 'play') drawPlayArrows();
+  if (t.dataset.tab === 'screen-share') drawReplicaArrow();
 });
 
 // ---- play ----
@@ -785,7 +799,7 @@ $id('a-status').textContent = 'White to move';
 renderMoves();
 linesMessage('Press “My turn — analyze now” for your model’s top lines.');
 
-window.addEventListener('resize', () => { board.resize(); rboard.resize(); aboard.resize(); drawArrow(); drawPlayArrows(); });
+window.addEventListener('resize', () => { board.resize(); rboard.resize(); aboard.resize(); screenReplica.resize(); drawArrow(); drawPlayArrows(); drawReplicaArrow(); });
 refresh();
 
 // ---- screen board selection ----
@@ -798,6 +812,7 @@ let screenStream = null, selectedBoard = null, selectionStart = null, selectionD
 let screenFrame = 0, lastScreenDraw = 0;
 let screenFingerprint = null, screenStableSince = 0, analyzedFingerprint = null;
 let screenAnalysisBusy = false, screenAnalysisRequest = 0, screenPreviousFen = null, screenArrow = null;
+const screenReplica = Chessboard('screen-replica', { position: {}, pieceTheme: PIECES });
 const fingerprintCanvas = document.createElement('canvas');
 fingerprintCanvas.width = fingerprintCanvas.height = 32;
 const fingerprintContext = fingerprintCanvas.getContext('2d', { willReadFrequently: true });
@@ -846,7 +861,7 @@ function drawScreenPreview(now) {
 }
 
 function drawScreenMoveArrow() {
-  if (!screenArrow || !selectedBoard) return;
+  if (!screenArrow || !selectedBoard) { drawReplicaArrow(); return; }
   const fromFile = screenArrow.move.charCodeAt(0) - 97;
   const fromRank = Number(screenArrow.move[1]);
   const toFile = screenArrow.move.charCodeAt(2) - 97;
@@ -878,6 +893,26 @@ function drawScreenMoveArrow() {
   screenContext.closePath();
   screenContext.fill();
   screenContext.restore();
+  drawReplicaArrow();
+}
+
+function drawReplicaArrow() {
+  const svg = $id('screen-replica-arrow'), squares = $id('screen-replica').querySelector('.board-b72b1');
+  if (!screenArrow || !squares) { svg.innerHTML = ''; return; }
+  const wrap = $id('screen-replica-wrap').getBoundingClientRect(), rect = squares.getBoundingClientRect();
+  Object.assign(svg.style, { left: `${rect.left - wrap.left}px`, top: `${rect.top - wrap.top}px`,
+    width: `${rect.width}px`, height: `${rect.height}px` });
+  svg.setAttribute('viewBox', '0 0 8 8');
+  const point = square => ({
+    x: (screenArrow.orientation === 'white' ? square.charCodeAt(0) - 97 : 7 - (square.charCodeAt(0) - 97)) + .5,
+    y: (screenArrow.orientation === 'white' ? 8 - Number(square[1]) : Number(square[1]) - 1) + .5,
+  });
+  const from = point(screenArrow.move.slice(0, 2)), to = point(screenArrow.move.slice(2, 4));
+  const angle = Math.atan2(to.y - from.y, to.x - from.x);
+  const base = { x: to.x - Math.cos(angle) * .42, y: to.y - Math.sin(angle) * .42 };
+  const head = [to, { x: base.x - Math.sin(angle) * .28, y: base.y + Math.cos(angle) * .28 },
+    { x: base.x + Math.sin(angle) * .28, y: base.y - Math.cos(angle) * .28 }];
+  svg.innerHTML = `<rect class="from" x="${from.x-.5}" y="${from.y-.5}" width="1" height="1"/><rect class="to" x="${to.x-.5}" y="${to.y-.5}" width="1" height="1"/><line class="shaft" x1="${from.x}" y1="${from.y}" x2="${base.x}" y2="${base.y}"/><polygon class="head" points="${head.map(p => `${p.x},${p.y}`).join(' ')}"/>`;
 }
 
 function observeScreenBoard(now) {
@@ -899,22 +934,24 @@ function observeScreenBoard(now) {
     screenStableSince = now;
     if (screenPreviousFen) {
       screenArrow = null;
-      $id('screen-analysis').innerHTML = '<strong>Screen analysis</strong><span class="muted">Board changed; waiting for it to settle…</span>';
+      screenReplica.position({}, false);
+      drawReplicaArrow();
+      $id('screen-analysis').innerHTML = '<strong>Screen recognition</strong><span class="muted">Board changed; waiting for it to settle…</span>';
     }
     return;
   }
   if (now - screenStableSince < 650 || !$id('live-screen-analysis').checked
       || screenAnalysisBusy || hash === analyzedFingerprint) return;
-  analyzeScreenBoard(hash);
+  recognizeScreenBoard(hash);
 }
 
-async function analyzeScreenBoard(fingerprint = screenFingerprint) {
+async function recognizeScreenBoard(fingerprint = screenFingerprint) {
   if (!screenStream || !selectedBoard || screenAnalysisBusy) return;
   screenAnalysisBusy = true;
   const requestId = ++screenAnalysisRequest;
   analyzedFingerprint = fingerprint;
   $id('analyse-screen').disabled = true;
-  $id('screen-analysis').innerHTML = '<strong>Screen analysis</strong><span class="muted">Recognizing pieces and analyzing…</span>';
+  $id('screen-analysis').innerHTML = '<strong>Screen recognition</strong><span class="muted">Recognizing pieces…</span>';
   try {
     const crop = document.createElement('canvas');
     crop.width = crop.height = 256;
@@ -927,26 +964,30 @@ async function analyzeScreenBoard(fingerprint = screenFingerprint) {
     form.append('turn', $id('screen-turn').value);
     form.append('castling', $id('screen-castling').value.trim());
     form.append('en_passant', $id('screen-en-passant').value.trim());
-    form.append('nodes', String(Math.min(400, +$id('nodes').value)));
     if (screenPreviousFen) form.append('previous_fen', screenPreviousFen);
-    const response = await fetch('/api/screen-analyse', { method: 'POST', body: form });
+    const response = await fetch('/api/screen-recognize', { method: 'POST', body: form });
     const result = await response.json();
-    if (!response.ok) throw Object.assign(new Error(result.error || 'Screen analysis failed.'), { resetRequired: result.reset_required });
+    if (!response.ok) throw Object.assign(new Error(result.error || 'Screen recognition failed.'), { resetRequired: result.reset_required });
     if (requestId !== screenAnalysisRequest) return;
-    screenPreviousFen = result.fen;
     const wasCurrent = fingerprint === screenFingerprint;
     if (wasCurrent) {
-      screenArrow = { move: result.move, orientation: $id('screen-orientation').value };
-      const evalText = `${result.cp > 0 ? '+' : ''}${(result.cp / 100).toFixed(2)}`;
+      screenPreviousFen = result.fen;
+      screenArrow = null;
+      screenReplica.orientation($id('screen-orientation').value);
+      screenReplica.position(result.fen, false);
+      screenReplica.resize();
+      drawReplicaArrow();
       const played = result.played_move ? ` · detected ${result.played_move}` : '';
-      $id('screen-analysis').innerHTML = `<strong>${esc(result.san)} · White eval ${evalText}${played}</strong><span class="muted">${esc(result.explanation)} Line: ${esc(result.pv)} · recognition confidence ${(result.confidence * 100).toFixed(0)}%</span>`;
-      $id('screen-status').textContent = 'Board recognized and analyzed. Arrow shows the suggested move.';
+      $id('screen-analysis').innerHTML = `<strong>Position recognized${played}</strong><span class="muted">Recognition confidence ${(result.confidence * 100).toFixed(0)}%. Screen capture displays the position only; it does not generate move advice.</span>`;
+      $id('screen-status').textContent = 'Board recognized and displayed. Screen capture does not generate recommendations.';
     }
   } catch (error) {
     if (requestId === screenAnalysisRequest) {
       screenArrow = null;
+      screenReplica.position({}, false);
+      drawReplicaArrow();
       const recovery = error.resetRequired ? ' Click “Reset position tracking” if you started sharing mid-game.' : '';
-      $id('screen-analysis').innerHTML = `<strong>Screen analysis</strong><span class="muted">${esc(error.message)}${recovery}</span>`;
+      $id('screen-analysis').innerHTML = `<strong>Screen recognition</strong><span class="muted">${esc(error.message)}${recovery}</span>`;
     }
   } finally {
     if (requestId === screenAnalysisRequest) {
@@ -983,6 +1024,8 @@ function stopScreenShare() {
   screenVideo.srcObject = null;
   selectedBoard = selectionDraft = selectionStart = null;
   screenPreviousFen = screenArrow = null;
+  screenReplica.position({}, false);
+  drawReplicaArrow();
   screenFingerprint = analyzedFingerprint = null;
   screenAnalysisRequest++;
   screenAnalysisBusy = false;
@@ -995,12 +1038,21 @@ function stopScreenShare() {
 }
 
 $id('stop-screen').onclick = stopScreenShare;
-$id('analyse-screen').onclick = () => analyzeScreenBoard();
+$id('analyse-screen').onclick = () => recognizeScreenBoard();
 $id('reset-screen-position').onclick = () => {
   screenPreviousFen = null;
   screenArrow = null;
+  screenReplica.position({}, false);
+  drawReplicaArrow();
   analyzedFingerprint = null;
-  $id('screen-analysis').innerHTML = '<strong>Screen analysis</strong><span class="muted">Tracking reset. Select the side to move, then analyze the current board.</span>';
+  $id('screen-analysis').innerHTML = '<strong>Screen recognition</strong><span class="muted">Tracking reset. Select the side to move, then recognize the current board.</span>';
+};
+$id('screen-orientation').onchange = () => {
+  screenPreviousFen = null;
+  screenArrow = null;
+  screenReplica.position({}, false);
+  analyzedFingerprint = null;
+  drawReplicaArrow();
 };
 screenCanvas.addEventListener('pointerdown', event => {
   if (!screenStream || !screenCanvas.width) return;
@@ -1025,11 +1077,13 @@ screenCanvas.addEventListener('pointerup', () => {
     selectedBoard = { x, y, w: size, h: size };
     screenPreviousFen = null;
     screenArrow = null;
+    screenReplica.position({}, false);
+    drawReplicaArrow();
     screenFingerprint = analyzedFingerprint = null;
     $id('analyse-screen').disabled = false;
     $id('reset-screen-position').disabled = false;
     $id('screen-status').textContent = 'Board area selected. Waiting for a stable position…';
-    $id('screen-analysis').innerHTML = '<strong>Screen analysis</strong><span class="muted">Waiting to recognize the selected board…</span>';
+    $id('screen-analysis').innerHTML = '<strong>Screen recognition</strong><span class="muted">Waiting to recognize the selected board…</span>';
   } else {
     selectedBoard = null;
     $id('screen-status').textContent = 'Selection too small. Drag around the full board.';

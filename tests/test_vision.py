@@ -8,6 +8,7 @@ from vision import advance_board, recognize_piece_map
 
 REFERENCE = Path("vision_assets/reference_board.png")
 FANTASY_REFERENCE = Path("vision_assets/fantasy_reference.png")
+CIPHER_REFERENCE = Path("vision_assets/cipherchess_reference.png")
 
 
 def test_reference_theme_recognizes_initial_position():
@@ -28,6 +29,17 @@ def test_fantasy_theme_recognizes_the_supplied_live_position():
     assert board.board_fen() == "rnbqkbnr/ppp1pppp/8/3p4/8/3P4/PPP1PPPP/RNBQKBNR"
     assert board.is_valid()
     assert len(pieces) == 32
+    assert confidence > 0.8
+
+
+def test_analysis_board_theme_recognizes_the_supplied_position():
+    pieces, confidence = recognize_piece_map(CIPHER_REFERENCE.read_bytes())
+    board = chess.Board(None)
+    for square, piece in pieces.items():
+        board.set_piece_at(square, piece)
+    assert board.board_fen() == "r3qrk1/1ppb3n/n2p2p1/3Ppp1p/1PP1P2B/2N1bP2/3NB1PP/1R1Q1RK1"
+    assert board.is_valid()
+    assert len(pieces) == 30
     assert confidence > 0.8
 
 
